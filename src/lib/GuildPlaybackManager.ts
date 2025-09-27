@@ -27,6 +27,9 @@ export class GuildPlaybackManager {
   private currentSong: Song | null = null;
   private isLooping: boolean = false;
   private onErrorCallback: VoiceErrorCallback;
+  // Keep references to custom streaming pipeline so we can clean them up
+  private ffmpegStream: prism.FFmpeg | null = null;
+  private volumeStream: prism.VolumeTransformer | null = null;
   // Use ReturnType<...> for better type safety with setTimeout
   private inactivityTimeout: ReturnType<typeof setTimeout> | null = null; // <-- Changed type
   private static readonly DEFAULT_INACTIVITY_TIMEOUT_MS = 300_000; // 5 minutes
@@ -113,6 +116,21 @@ export class GuildPlaybackManager {
       this.inactivityTimeout = null;
       // console.log(`[Guild ${this.guildId}] Cleared inactivity disconnect timer.`); // Can be noisy
     }
+  }
+
+  private destroyPipeline(): void {
+    try {
+      if (this.volumeStream) {
+        try { this.volumeStream.unpipe(); } catch {}
+        try { this.volumeStream.destroy(); } catch {}
+        this.volumeStream = null;
+      }
+      if (this.ffmpegStream) {
+        try { this.ffmpegStream.unpipe(); } catch {}
+        try { this.ffmpegStream.destroy(); } catch {}
+        this.ffmpegStream = null;
+      }
+    } catch {}
   }
 
   public async join(channel: BaseGuildVoiceChannel): Promise<void> {
@@ -235,6 +253,8 @@ export class GuildPlaybackManager {
       // Build FFmpeg PCM pipeline
       let resource: AudioResource;
       if (this.isLooping) {
+        // Ensure any previous custom pipeline is disposed before creating a new one
+        this.destroyPipeline();
         // Gapless loop: build a manual pipeline ffmpeg(loop) -> volume -> opus
         const ffmpeg = new prism.FFmpeg({
           args: [
@@ -249,12 +269,17 @@ export class GuildPlaybackManager {
         const vol = new prism.VolumeTransformer({ type: 's16le' });
         ffmpeg.pipe(vol);
         resource = createAudioResource(vol, { metadata: songToPlay, inputType: StreamType.Raw });
+        // Keep references for cleanup later
+        this.ffmpegStream = ffmpeg;
+        this.volumeStream = vol;
       } else {
         // Simpler path lets the library spawn ffmpeg and add inline volume + opus encoder
         resource = createAudioResource(songToPlay.path, {
           metadata: songToPlay,
           inlineVolume: true,
         });
+        // If switching from custom pipeline to file path, ensure previous custom streams are gone
+        this.destroyPipeline();
       }
 
       // Apply encoder tuning (resource.encoder exists when an opus encoder is in the pipeline)
@@ -319,6 +344,8 @@ export class GuildPlaybackManager {
       this.player.stop(true);
       this.resource = null;
       this.currentSong = null; // Clear current song when stopped
+      // Make sure to tear down any custom pipeline
+      this.destroyPipeline();
       // Note: We keep the loop state as is. User might want it on for the next song.
       this.scheduleInactivityDisconnect();
     } else {
@@ -403,6 +430,8 @@ export class GuildPlaybackManager {
     if (this.player) {
       this.player.stop(true);
     }
+    // Always dispose of any custom streams
+    this.destroyPipeline();
     if (destroyConnection && this.connection) {
       // Check status before destroying
       if (this.connection.state.status !== VoiceConnectionStatus.Destroyed) {

@@ -151,6 +151,17 @@ client.on(Events.InteractionCreate, async (interaction) => {
   }
 });
 
+// Clean up manager when bot is removed from a guild to avoid stale entries
+client.on(Events.GuildDelete, (guild) => {
+  const id = guild.id;
+  const mgr = client.playbackManagers.get(id);
+  if (mgr) {
+    try { mgr.destroy(); } catch {}
+    client.playbackManagers.delete(id);
+    console.log(`Destroyed playback manager for removed guild ${id}.`);
+  }
+});
+
 // --- Graceful Shutdown ---
 const shutdown = () => {
   console.log('Shutting down gracefully...');
