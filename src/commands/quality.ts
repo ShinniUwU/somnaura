@@ -1,7 +1,6 @@
 import {
   SlashCommandBuilder,
-  type CommandInteraction,
-  type CacheType,
+  type ChatInputCommandInteraction,
 } from 'discord.js';
 import type { Command } from '../types';
 import type { GuildPlaybackManager } from '../lib/GuildPlaybackManager';
@@ -52,7 +51,7 @@ export default {
     ),
 
   async execute(
-    interaction: CommandInteraction<CacheType>,
+    interaction: ChatInputCommandInteraction,
     manager: GuildPlaybackManager,
   ) {
     const sub = interaction.options.getSubcommand();
@@ -88,4 +87,3 @@ export default {
     });
   },
 } as Command;
-

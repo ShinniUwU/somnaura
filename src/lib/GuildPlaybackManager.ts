@@ -123,7 +123,7 @@ export class GuildPlaybackManager {
       // console.log(`[Guild ${this.guildId}] Already connected to ${channel.name}`); // Can be noisy
       if (
         this.connection.state.status === VoiceConnectionStatus.Ready &&
-        !this.connection.state.subscription
+        !(this.connection as any)?.state.subscription
       ) {
         console.log(`[Guild ${this.guildId}] Re-subscribing player.`);
         this.connection.subscribe(this.player);
@@ -407,7 +407,7 @@ export class GuildPlaybackManager {
         this.connection.destroy();
       }
       this.connection = null; // Clear reference
-    } else if (!destroyConnection && this.connection?.state.subscription) {
+    } else if (!destroyConnection && (this.connection as any)?.state.subscription) {
       // If not destroying connection, at least ensure player is unsubscribed
       try {
         this.connection.state.subscription.unsubscribe();

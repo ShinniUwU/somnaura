@@ -1,7 +1,6 @@
 import type {
   SlashCommandBuilder,
-  CommandInteraction,
-  CacheType,
+  ChatInputCommandInteraction,
   AutocompleteInteraction,
   BaseGuildVoiceChannel,
 } from 'discord.js';
@@ -12,11 +11,11 @@ import type { GuildPlaybackManager } from '../lib/GuildPlaybackManager';
 export interface Command {
   data: SlashCommandBuilder;
   execute: (
-    interaction: CommandInteraction<CacheType>,
+    interaction: ChatInputCommandInteraction,
     manager: GuildPlaybackManager,
   ) => Promise<void>;
   autocomplete?: (
-    interaction: AutocompleteInteraction<CacheType>,
+    interaction: AutocompleteInteraction,
   ) => Promise<void>;
 }
 

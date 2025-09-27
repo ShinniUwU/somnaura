@@ -1,8 +1,7 @@
 import {
   SlashCommandBuilder,
   PermissionFlagsBits,
-  type CommandInteraction,
-  type CacheType,
+  type ChatInputCommandInteraction,
   type AutocompleteInteraction,
 } from 'discord.js';
 import { type Command, isVoiceChannel, type Song } from '../types';
@@ -23,7 +22,7 @@ export default {
     ),
 
   async execute(
-    interaction: CommandInteraction<CacheType>,
+    interaction: ChatInputCommandInteraction,
     manager: GuildPlaybackManager,
   ) {
     // Defer immediately as joining/playing might take time
@@ -92,7 +91,7 @@ export default {
       }
     }
   },
-  async autocomplete(interaction: AutocompleteInteraction<CacheType>) {
+  async autocomplete(interaction: AutocompleteInteraction) {
     const focused = interaction.options.getFocused().toLowerCase();
     const all = getAllSongNames();
     const choices = all

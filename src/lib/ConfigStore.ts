@@ -69,6 +69,8 @@ export const ConfigStore = {
       opusFec: Boolean(newConfig.opusFec),
       opusPlp: clamp(newConfig.opusPlp, 0, 1),
       maxMissedFrames: Math.max(1, Math.round(newConfig.maxMissedFrames)),
+      volume: clamp(newConfig.volume, 0, 2),
+      inactivityMinutes: Math.max(0, Math.round(newConfig.inactivityMinutes)),
     };
     save();
     return this.get();

@@ -1,7 +1,6 @@
 import {
   SlashCommandBuilder,
-  type CommandInteraction,
-  type CacheType,
+  type ChatInputCommandInteraction,
 } from 'discord.js';
 import { generateDependencyReport } from '@discordjs/voice';
 import type { Command } from '../types';
@@ -13,7 +12,7 @@ export default {
     .setDescription('Prints a dependency report for voice (FFmpeg, Opus, sodium)'),
 
   async execute(
-    interaction: CommandInteraction<CacheType>,
+    interaction: ChatInputCommandInteraction,
     _manager: GuildPlaybackManager,
   ) {
     const report = generateDependencyReport();
@@ -22,4 +21,3 @@ export default {
     await interaction.reply({ content: '```\n' + content + '\n```', ephemeral: true });
   },
 } as Command;
-

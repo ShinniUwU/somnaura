@@ -1,7 +1,6 @@
 import {
   SlashCommandBuilder,
-  type CommandInteraction,
-  type CacheType,
+  type ChatInputCommandInteraction,
 } from 'discord.js';
 import type { Command } from '../types';
 import { getAllSongNames } from '../utils/findSong';
@@ -13,7 +12,7 @@ export default {
     .setDescription('Lists all available songs'),
 
   async execute(
-    interaction: CommandInteraction<CacheType>,
+    interaction: ChatInputCommandInteraction,
     manager: GuildPlaybackManager,
   ) {
     const songs = getAllSongNames();

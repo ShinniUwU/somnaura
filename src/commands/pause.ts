@@ -1,7 +1,6 @@
 import {
   SlashCommandBuilder,
-  type CommandInteraction,
-  type CacheType,
+  type ChatInputCommandInteraction,
 } from 'discord.js';
 import type { Command } from '../types';
 import type { GuildPlaybackManager } from '../lib/GuildPlaybackManager';
@@ -12,11 +11,10 @@ export default {
     .setDescription('Pause playback (with brief silence to prevent pops)'),
 
   async execute(
-    interaction: CommandInteraction<CacheType>,
+    interaction: ChatInputCommandInteraction,
     manager: GuildPlaybackManager,
   ) {
     const ok = manager.pause();
     await interaction.reply({ content: ok ? 'Paused.' : 'Nothing to pause.' });
   },
 } as Command;
-

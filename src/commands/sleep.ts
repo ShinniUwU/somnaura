@@ -1,8 +1,7 @@
 import {
   SlashCommandBuilder,
   PermissionFlagsBits,
-  type CommandInteraction,
-  type CacheType,
+  type ChatInputCommandInteraction,
   type AutocompleteInteraction,
 } from 'discord.js';
 import type { Command } from '../types';
@@ -44,7 +43,7 @@ export default {
     .addSubcommand((s) => s.setName('cancel').setDescription('Cancel sleep timer')),
 
   async execute(
-    interaction: CommandInteraction<CacheType>,
+    interaction: ChatInputCommandInteraction,
     manager: GuildPlaybackManager,
   ) {
     const sub = interaction.options.getSubcommand();
@@ -94,7 +93,7 @@ export default {
       await interaction.editReply({ content: `Failed to start sleep: ${e.message || e}` });
     }
   },
-  async autocomplete(interaction: AutocompleteInteraction<CacheType>) {
+  async autocomplete(interaction: AutocompleteInteraction) {
     const sub = interaction.options.getSubcommand(false);
     if (sub !== 'start') return;
     const focused = interaction.options.getFocused().toLowerCase();
