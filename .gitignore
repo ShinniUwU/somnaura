@@ -16,3 +16,6 @@ build/
 # Songs: keep folder, ignore audio, allow .gitkeep
 songs/*
 !songs/.gitkeep
+
+# Allow example env file
+!.env.example
