@@ -6,7 +6,14 @@ Quick start (Bun):
 
 ```bash
 bun install
-bun run src/index.ts
+bun dev   # run directly in TypeScript
+```
+
+For production:
+
+```bash
+bun build
+bun start
 ```
 
 Note: For the most stable Discord voice playback, Node.js LTS is recommended because native voice deps (Opus/sodium) are best-supported there. Bun can run the bot, but if you experience audio glitches under load, consider using Node 20/22.
