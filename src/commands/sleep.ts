@@ -17,13 +17,7 @@ export default {
       s
         .setName('start')
         .setDescription('Start sleep timer')
-        .addStringOption((o) =>
-          o
-            .setName('query')
-            .setDescription('Song name (e.g., rain)')
-            .setRequired(false)
-            .setAutocomplete(true),
-        )
+        // Required options must come first
         .addIntegerOption((o) =>
           o
             .setName('minutes')
@@ -31,6 +25,13 @@ export default {
             .setMinValue(1)
             .setMaxValue(600)
             .setRequired(true),
+        )
+        .addStringOption((o) =>
+          o
+            .setName('query')
+            .setDescription('Song name (e.g., rain)')
+            .setRequired(false)
+            .setAutocomplete(true),
         )
         .addIntegerOption((o) =>
           o

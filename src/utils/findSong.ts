@@ -1,39 +1,53 @@
 import fs from 'fs';
 import path from 'path';
 import Fuse from 'fuse.js';
-import { Song } from '../types'; // Adjust path if needed
+import { Song } from '../types';
 
-const SONGS_DIR = path.resolve(__dirname, '../songs'); // Assumes 'songs' is one level above src/dist
+const AUDIO_RE = /\.(mp3|ogg|wav|flac|m4a|aac)$/i;
 
-// Ensure songs directory exists (run once at module load)
-if (!fs.existsSync(SONGS_DIR)) {
-  console.error(`Error: Songs directory not found at ${SONGS_DIR}`);
-  // Consider exiting or handling this more gracefully depending on requirements
+function candidateDirs(): string[] {
+  // Prefer root 'songs/' but also support legacy 'src/songs/'
+  const dirs = [
+    path.resolve(process.cwd(), 'songs'),
+    path.resolve(__dirname, '../songs'),
+  ];
+  // Deduplicate
+  return Array.from(new Set(dirs));
 }
 
 let songCache: Song[] = [];
 let fuse: Fuse<Song> | null = null;
 
 function loadSongs(): void {
-  console.log(`Loading songs from: ${SONGS_DIR}`);
-  try {
-    const files = fs.readdirSync(SONGS_DIR).filter(
-      (file) => /\.(mp3|ogg|wav|flac|m4a|aac)$/i.test(file), // Filter for audio files
-    );
-    songCache = files.map((file) => ({
-      name: file,
-      path: path.join(SONGS_DIR, file),
-    }));
+  const dirs = candidateDirs().filter((p) => fs.existsSync(p));
+  if (dirs.length === 0) {
+    console.error('Error: No songs directory found. Create ./songs or src/songs');
+  }
 
-    // Initialize Fuse.js for fuzzy searching
+  try {
+    const entries: Song[] = [];
+    for (const dir of dirs) {
+      const files = fs
+        .readdirSync(dir)
+        .filter((f) => AUDIO_RE.test(f));
+      for (const file of files) {
+        const full = path.join(dir, file);
+        // Prefer first occurrence of a given name (root songs/ has priority by order)
+        if (!entries.some((e) => e.name === file)) {
+          entries.push({ name: file, path: full });
+        }
+      }
+    }
+    songCache = entries;
+
     fuse = new Fuse(songCache, {
-      keys: ['name'], // Search by song name
+      keys: ['name'],
       includeScore: true,
-      threshold: 0.4, // Adjust threshold (0=exact match, 1=match anything)
+      threshold: 0.4,
     });
-    console.log(`Loaded ${songCache.length} songs.`);
+    console.log(`Loaded ${songCache.length} songs from: ${dirs.join(', ')}`);
   } catch (error) {
-    console.error('Error loading songs directory:', error);
+    console.error('Error loading songs:', error);
     songCache = [];
     fuse = null;
   }
@@ -42,32 +56,24 @@ function loadSongs(): void {
 // Initial load
 loadSongs();
 
-// Function to find the best song match
 export function findSong(query: string): Song | null {
-  if (!fuse) {
-    console.error('Fuse.js index not initialized.');
-    return null; // Or fallback to simple includes if preferred
-  }
-
+  if (!fuse) return null;
   const results = fuse.search(query);
-
   if (results.length > 0) {
-    // Fuse returns results sorted by score (lower is better)
-    console.log(
-      `Query "${query}" matched "${results[0].item.name}" with score ${results[0].score}`,
-    );
+    console.log(`Query "${query}" matched "${results[0].item.name}"`);
     return results[0].item;
   }
-
   return null;
 }
 
-// Function to get all loaded song names
 export function getAllSongNames(): string[] {
   return songCache.map((song) => song.name);
 }
 
-// Optional: Add a function to reload songs if needed (e.g., via a command)
 export function reloadSongs(): void {
   loadSongs();
+}
+
+export function hasAnySongs(): boolean {
+  return songCache.length > 0;
 }

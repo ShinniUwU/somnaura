@@ -232,26 +232,30 @@ export class GuildPlaybackManager {
       const { opusBitrate, opusFec, opusPlp } = ConfigStore.get();
 
       // Build FFmpeg PCM pipeline
-      const ffmpegArgs = [
-        '-hide_banner',
-        '-loglevel', 'error',
-      ];
+      let resource: AudioResource;
       if (this.isLooping) {
-        ffmpegArgs.push('-stream_loop', '-1');
+        // Gapless loop: build a manual pipeline ffmpeg(loop) -> volume -> opus
+        const ffmpeg = new prism.FFmpeg({
+          args: [
+            '-hide_banner',
+            '-loglevel', 'error',
+            '-stream_loop', '-1',
+            '-i', songToPlay.path,
+            '-f', 's16le', '-ar', '48000', '-ac', '2',
+          ],
+        });
+        const vol = new prism.VolumeTransformer({ type: 's16le' });
+        ffmpeg.pipe(vol);
+        resource = createAudioResource(vol, { metadata: songToPlay });
+      } else {
+        // Simpler path lets the library spawn ffmpeg and add inline volume + opus encoder
+        resource = createAudioResource(songToPlay.path, {
+          metadata: songToPlay,
+          inlineVolume: true,
+        });
       }
-      ffmpegArgs.push(
-        '-i', songToPlay.path,
-        '-f', 's16le',
-        '-ar', '48000',
-        '-ac', '2',
-      );
-      const ffmpeg = new prism.FFmpeg({ args: ffmpegArgs });
-      // Let @discordjs/voice build a raw -> [volume] -> opus pipeline so we can adjust volume live
-      const resource = createAudioResource(ffmpeg, {
-        metadata: songToPlay,
-        inlineVolume: true,
-      });
-      // Apply encoder tuning if available
+
+      // Apply encoder tuning (resource.encoder exists when an opus encoder is in the pipeline)
       if (resource.encoder) {
         try { resource.encoder.setBitrate(opusBitrate); } catch {}
         try { resource.encoder.setFEC(Boolean(opusFec)); } catch {}
@@ -320,6 +324,18 @@ export class GuildPlaybackManager {
         `[Guild ${this.guildId}] Stop requested but player already idle.`,
       );
     }
+  }
+
+  public pause(): boolean {
+    const ok = this.player.pause(true);
+    if (ok) this.scheduleInactivityDisconnect();
+    return ok;
+  }
+
+  public resume(): boolean {
+    const ok = this.player.unpause();
+    if (ok) this.clearInactivityDisconnect();
+    return ok;
   }
 
   public leave(silent = false): void {

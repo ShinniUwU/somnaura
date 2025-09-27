@@ -48,7 +48,10 @@ Runtime quality control (no SSH):
 - Use `/quality set` to change `bitrate`, `fec`, `plp`, and `max_missed_frames` live. Settings persist to `config.json` and apply to the next track.
 - Use `/volume get` and `/volume set percent:NN` to adjust loudness live (0–200%).
 - Use `/sleep start minutes:N [query:rain] [fadeout_ms:2000]` to loop a sound for N minutes and fade out automatically, or `/sleep cancel` to cancel.
+- Use `/rain [minutes:N]` as a shortcut to loop your rain file (and optionally set a sleep timer).
 - Use `/status` to see now playing, loop, and volume.
+- Use `/pause` and `/resume` to control playback without stopping.
+- Use `/reload` to rescan the songs folder; `/random [filter:rain]` to pick a random track.
 
 Pre-encoding (optional, best performance):
 
@@ -58,4 +61,4 @@ For zero on-the-fly CPU cost, pre-encode your audio as 48kHz stereo Ogg/Opus. Th
 ffmpeg -i input.mp3 -c:a libopus -b:a 128k -frame_duration 20 -application audio -ar 48000 -ac 2 output.ogg
 ```
 
-Place files in `src/songs/`.
+Place files in `songs/` (or `src/songs/`).
