@@ -11,6 +11,7 @@ import {
   NoSubscriberBehavior,
   VoiceConnection,
   VoiceConnectionStatus,
+  StreamType,
 } from '@discordjs/voice';
 import type { BaseGuildVoiceChannel } from 'discord.js'; // Use type import
 import type { Song } from '../types'; // Use type import
@@ -240,13 +241,14 @@ export class GuildPlaybackManager {
             '-hide_banner',
             '-loglevel', 'error',
             '-stream_loop', '-1',
+            '-re',
             '-i', songToPlay.path,
             '-f', 's16le', '-ar', '48000', '-ac', '2',
           ],
         });
         const vol = new prism.VolumeTransformer({ type: 's16le' });
         ffmpeg.pipe(vol);
-        resource = createAudioResource(vol, { metadata: songToPlay });
+        resource = createAudioResource(vol, { metadata: songToPlay, inputType: StreamType.Raw });
       } else {
         // Simpler path lets the library spawn ffmpeg and add inline volume + opus encoder
         resource = createAudioResource(songToPlay.path, {
