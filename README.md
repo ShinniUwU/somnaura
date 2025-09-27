@@ -1,4 +1,6 @@
-# makeshift-musicbot
+# Somnaura
+
+Somnaura is a minimalist Discord music bot written in TypeScript. Instead of fetching tracks from external APIs, it simply plays audio files you place inside its songs/ folder — perfect for looping rain, white noise, or any custom soundscape you want.
 
 Quick start (Bun):
 
