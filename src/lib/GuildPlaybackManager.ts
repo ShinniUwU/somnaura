@@ -98,6 +98,16 @@ export class GuildPlaybackManager {
     return player;
   }
 
+  // Set live output volume on whichever volume transformer is active
+  private setOutputVolumeImmediate(v: number): void {
+    const vol = Math.max(0, Math.min(2, v));
+    if (this.resource?.volume) {
+      try { this.resource.volume.setVolume(vol); } catch {}
+    } else if (this.volumeStream) {
+      try { this.volumeStream.setVolume(vol); } catch {}
+    }
+  }
+
   private scheduleInactivityDisconnect(): void {
     this.clearInactivityDisconnect();
     console.log(`[Guild ${this.guildId}] Scheduling inactivity disconnect.`);
@@ -289,14 +299,15 @@ export class GuildPlaybackManager {
         try { resource.encoder.setPLP(Math.max(0, Math.min(1, opusPlp))); } catch {}
       }
 
-      // Set initial volume and fade-in
+      // Set initial volume immediately (no fade to avoid perceived cutouts)
       const { volume } = ConfigStore.get();
-      if (resource.volume) {
-        try {
-          resource.volume.setVolume(0.0001);
-          this.startFade(0.0001, volume, 1500);
-        } catch {}
-      }
+      try {
+        if ((resource as any).volume) {
+          (resource as any).volume.setVolume(volume);
+        } else if (this.volumeStream) {
+          this.volumeStream.setVolume(volume);
+        }
+      } catch {}
       this.player.play(resource);
       this.resource = resource;
       this.currentSong = songToPlay;
@@ -466,9 +477,7 @@ export class GuildPlaybackManager {
     } catch {}
     // Also adjust live volume if playing
     const { volume } = ConfigStore.get();
-    if (this.resource?.volume) {
-      try { this.resource.volume.setVolume(volume); } catch {}
-    }
+    this.setOutputVolumeImmediate(volume);
   }
 
   public isLoopEnabled(): boolean {
@@ -486,25 +495,26 @@ export class GuildPlaybackManager {
   public setVolume(vol: number): string {
     const clamped = Math.max(0, Math.min(2, vol));
     ConfigStore.update({ volume: clamped });
-    if (this.resource?.volume) {
-      try { this.resource.volume.setVolume(clamped); } catch {}
-    }
+    this.setOutputVolumeImmediate(clamped);
     return `Volume set to ${(clamped * 100).toFixed(0)}%`;
   }
 
   private startFade(from: number, to: number, durationMs: number): void {
-    if (!this.resource?.volume) return;
+    // Choose the correct volume control interface (inlineVolume or PCM transformer)
+    const volumeCtl: { setVolume: (v: number) => void } | null =
+      (this.resource && this.resource.volume) ? this.resource.volume : (this.volumeStream ? this.volumeStream : null);
+    if (!volumeCtl) return;
     if (this.volumeFadeTimer) {
       clearInterval(this.volumeFadeTimer);
       this.volumeFadeTimer = null;
     }
     const steps = Math.max(1, Math.floor(durationMs / 50));
     let i = 0;
-    this.resource.volume.setVolume(from);
+    try { volumeCtl.setVolume(from); } catch {}
     this.volumeFadeTimer = setInterval(() => {
       i++;
       const v = from + (to - from) * (i / steps);
-      try { this.resource!.volume!.setVolume(v); } catch {}
+      try { volumeCtl.setVolume(v); } catch {}
       if (i >= steps) {
         if (this.volumeFadeTimer) clearInterval(this.volumeFadeTimer);
         this.volumeFadeTimer = null;

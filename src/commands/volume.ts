@@ -29,15 +29,18 @@ export default {
     interaction: ChatInputCommandInteraction,
     manager: GuildPlaybackManager,
   ) {
+    // Ack early to avoid interaction timeouts and race conditions
+    await interaction.deferReply({ ephemeral: true });
+
     const sub = interaction.options.getSubcommand();
     if (sub === 'get') {
       const v = ConfigStore.get().volume;
-      await interaction.reply({ content: `Volume: ${(v * 100).toFixed(0)}%`, ephemeral: true });
+      await interaction.editReply({ content: `Volume: ${(v * 100).toFixed(0)}%` });
       return;
     }
     const percent = interaction.options.get('percent', true).value as number;
     const vol = Math.max(0, Math.min(200, percent)) / 100;
     const msg = manager.setVolume(vol);
-    await interaction.reply({ content: msg });
+    await interaction.editReply({ content: msg });
   },
 } as Command;
