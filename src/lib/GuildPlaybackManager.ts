@@ -260,37 +260,12 @@ export class GuildPlaybackManager {
       // Falls back to default createAudioResource(path) if something goes wrong
       const { opusBitrate, opusFec, opusPlp } = ConfigStore.get();
 
-      // Build FFmpeg PCM pipeline
-      let resource: AudioResource;
-      if (this.isLooping) {
-        // Ensure any previous custom pipeline is disposed before creating a new one
-        this.destroyPipeline();
-        // Gapless loop: build a manual pipeline ffmpeg(loop) -> volume -> opus
-        const ffmpeg = new prism.FFmpeg({
-          args: [
-            '-hide_banner',
-            '-loglevel', 'error',
-            '-stream_loop', '-1',
-            '-re',
-            '-i', songToPlay.path,
-            '-f', 's16le', '-ar', '48000', '-ac', '2',
-          ],
-        });
-        const vol = new prism.VolumeTransformer({ type: 's16le' });
-        ffmpeg.pipe(vol);
-        resource = createAudioResource(vol, { metadata: songToPlay, inputType: StreamType.Raw });
-        // Keep references for cleanup later
-        this.ffmpegStream = ffmpeg;
-        this.volumeStream = vol;
-      } else {
-        // Simpler path lets the library spawn ffmpeg and add inline volume + opus encoder
-        resource = createAudioResource(songToPlay.path, {
-          metadata: songToPlay,
-          inlineVolume: true,
-        });
-        // If switching from custom pipeline to file path, ensure previous custom streams are gone
-        this.destroyPipeline();
-      }
+      // Build resource using library pipeline for stability in both loop/non-loop
+      this.destroyPipeline(); // Ensure no leftover custom streams
+      const resource: AudioResource = createAudioResource(songToPlay.path, {
+        metadata: songToPlay,
+        inlineVolume: true,
+      });
 
       // Apply encoder tuning (resource.encoder exists when an opus encoder is in the pipeline)
       if (resource.encoder) {

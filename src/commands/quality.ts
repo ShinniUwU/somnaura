@@ -54,9 +54,10 @@ export default {
     interaction: ChatInputCommandInteraction,
     manager: GuildPlaybackManager,
   ) {
+    await interaction.deferReply({ ephemeral: true });
     const sub = interaction.options.getSubcommand();
     if (sub === 'show') {
-      await interaction.reply({ content: 'Current quality:\n' + fmt(), ephemeral: true });
+      await interaction.editReply({ content: 'Current quality:\n' + fmt() });
       return;
     }
 
@@ -73,17 +74,16 @@ export default {
     if (typeof mmf === 'number') updates.maxMissedFrames = mmf;
 
     if (Object.keys(updates).length === 0) {
-      await interaction.reply({ content: 'No changes provided.', ephemeral: true });
+      await interaction.editReply({ content: 'No changes provided.' });
       return;
     }
 
     const newCfg = ConfigStore.update(updates);
     manager.applyConfig();
 
-    await interaction.reply({
+    await interaction.editReply({
       content: 'Updated quality settings:\n' + fmt() +
         '\nNote: new bitrate/FEC/PLP apply to the next track or when playback restarts.',
-      ephemeral: true,
     });
   },
 } as Command;
