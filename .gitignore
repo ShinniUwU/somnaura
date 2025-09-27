@@ -1,0 +1,18 @@
+# Node/TS
+node_modules/
+dist/
+build/
+*.log
+.DS_Store
+
+# Env / creds
+.env
+.env.*
+
+# Editor
+.vscode/
+.idea/
+
+# Songs: keep folder, ignore audio, allow .gitkeep
+songs/*
+!songs/.gitkeep
