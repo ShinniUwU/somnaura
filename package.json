@@ -5,10 +5,11 @@
   "scripts": {
     "dev": "bun run src/index.ts",
     "build": "bun x tsc -p tsconfig.json",
-    "start": "bun run dist/index.js"
+    "start": "bun run src/index.ts"
   },
   "devDependencies": {
-    "@types/bun": "latest"
+    "@types/bun": "latest",
+    "typescript": "^5.5.4"
   },
   "peerDependencies": {
     "typescript": "^5.0.0"

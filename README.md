@@ -16,7 +16,7 @@ bun build
 bun start
 ```
 
-Note: For the most stable Discord voice playback, Node.js LTS is recommended because native voice deps (Opus/sodium) are best-supported there. Bun can run the bot, but if you experience audio glitches under load, consider using Node 20/22.
+Note: This project is tuned to run smoothly on Bun — no build step required. Ensure FFmpeg is installed on your system (with libopus) and use `/voice-report` to verify the environment. If you ever hear artifacts, double‑check FFmpeg availability and try raising `max_missed_frames` in `/quality set`.
 
 System requirements for crystal-clear audio:
 
@@ -25,11 +25,7 @@ System requirements for crystal-clear audio:
 
 Runtime tuning (optional):
 
-- Encoder knobs via environment variables:
-  - `OPUS_BITRATE` (default: `96000`) – target bitrate in bps
-  - `OPUS_FEC` (default: `true`) – enable in-band Forward Error Correction
-  - `OPUS_PLP` (default: `0.1`) – expected packet loss (0..1) to tune FEC
-  - `MAX_MISSED_FRAMES` (default: `5`) – tolerance for missed 20ms frames before the player stops
+- Encoder knobs are persisted in `config.json` and can be changed live with `/quality set` (and applied immediately to the next track). Defaults are tuned for clarity and stability: `bitrate=128000`, `fec=true`, `plp=0.1`, `max_missed_frames=50`.
 
 Proxmox LXC tips:
 

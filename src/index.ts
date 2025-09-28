@@ -37,7 +37,7 @@ const client = new Client({
 }) as Client;
 
 // --- Initialize Collections ---
-client.commands = loadCommands();
+client.commands = await loadCommands();
 client.playbackManagers = new Map<string, GuildPlaybackManager>();
 
 // --- Register Commands ---
@@ -149,6 +149,22 @@ client.on(Events.InteractionCreate, async (interaction) => {
       );
     }
   }
+});
+
+// Auto-leave when alone in the channel after a grace period
+client.on(Events.VoiceStateUpdate, (oldState, newState) => {
+  const guildId = newState.guild?.id || oldState.guild?.id;
+  if (!guildId) return;
+  const manager = client.playbackManagers.get(guildId);
+  if (!manager) return;
+  const channelId = manager.getChannelId();
+  if (!channelId) return;
+  const channel = newState.guild.channels.cache.get(channelId);
+  if (!channel || !('isVoiceBased' in channel) || !(channel as any).isVoiceBased()) return;
+  const members = (channel as any).members;
+  const nonBots = members.filter((m: any) => !m.user?.bot);
+  if (nonBots.size === 0) manager.scheduleAloneDisconnect();
+  else manager.cancelAloneDisconnect();
 });
 
 // Clean up manager when bot is removed from a guild to avoid stale entries

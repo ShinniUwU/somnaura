@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'node:url';
 import Fuse from 'fuse.js';
 import type { Song } from '../types';
 
@@ -7,10 +8,14 @@ const AUDIO_RE = /\.(mp3|ogg|wav|flac|m4a|aac)$/i;
 
 function candidateDirs(): string[] {
   // Prefer root 'songs/' but also support legacy 'src/songs/'
-  const dirs = [
-    path.resolve(process.cwd(), 'songs'),
-    path.resolve(__dirname, '../songs'),
-  ];
+  const cwdSongs = path.resolve(process.cwd(), 'songs');
+  // Resolve based on the current module URL (ESM-safe); falls back to cwd if something goes wrong
+  let moduleSongs = cwdSongs;
+  try {
+    const here = path.dirname(fileURLToPath(import.meta.url));
+    moduleSongs = path.resolve(here, '../songs');
+  } catch {}
+  const dirs = [cwdSongs, moduleSongs];
   // Deduplicate
   return Array.from(new Set(dirs));
 }

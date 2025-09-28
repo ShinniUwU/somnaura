@@ -8,15 +8,25 @@ export type VoiceConfig = {
   maxMissedFrames: number; // audio frames (20ms)
   volume: number; // 0.0 .. 2.0 (1.0 = 100%)
   inactivityMinutes: number; // minutes, 0 disables auto-disconnect
+  preferOpusDemux: boolean; // try demux fast-path for pre-encoded opus
+  microFadeMs: number; // fade-in at start to avoid ticks
+  autoLeaveAlone: boolean; // auto leave when alone
+  aloneGraceSeconds: number; // grace before leaving when alone
 };
 
 const DEFAULTS: VoiceConfig = {
-  opusBitrate: 96_000,
+  // Slightly higher default bitrate for cleaner high-frequency content
+  opusBitrate: 128_000,
   opusFec: true,
   opusPlp: 0.1,
-  maxMissedFrames: 5,
+  // Allow brief jitter without dropouts; reduces crackle on busy hosts
+  maxMissedFrames: 50,
   volume: 1.0,
   inactivityMinutes: 5,
+  preferOpusDemux: true,
+  microFadeMs: 12,
+  autoLeaveAlone: true,
+  aloneGraceSeconds: 60,
 };
 
 const CONFIG_PATH = path.resolve(process.cwd(), 'config.json');
@@ -41,6 +51,10 @@ function load(): void {
         volume: clamp(Number(parsed.volume) || DEFAULTS.volume, 0, 2),
         inactivityMinutes:
           Math.max(0, Number(parsed.inactivityMinutes) || DEFAULTS.inactivityMinutes),
+        preferOpusDemux: typeof parsed.preferOpusDemux === 'boolean' ? parsed.preferOpusDemux : DEFAULTS.preferOpusDemux,
+        microFadeMs: Math.max(0, Number(parsed.microFadeMs) || DEFAULTS.microFadeMs),
+        autoLeaveAlone: typeof parsed.autoLeaveAlone === 'boolean' ? parsed.autoLeaveAlone : DEFAULTS.autoLeaveAlone,
+        aloneGraceSeconds: Math.max(5, Number(parsed.aloneGraceSeconds) || DEFAULTS.aloneGraceSeconds),
       };
     }
   } catch (e) {
@@ -71,6 +85,10 @@ export const ConfigStore = {
       maxMissedFrames: Math.max(1, Math.round(newConfig.maxMissedFrames)),
       volume: clamp(newConfig.volume, 0, 2),
       inactivityMinutes: Math.max(0, Math.round(newConfig.inactivityMinutes)),
+      preferOpusDemux: Boolean(newConfig.preferOpusDemux),
+      microFadeMs: Math.max(0, Math.round(newConfig.microFadeMs)),
+      autoLeaveAlone: Boolean(newConfig.autoLeaveAlone),
+      aloneGraceSeconds: Math.max(5, Math.round(newConfig.aloneGraceSeconds)),
     };
     save();
     return this.get();
