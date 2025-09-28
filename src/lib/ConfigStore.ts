@@ -6,7 +6,6 @@ export type VoiceConfig = {
   opusFec: boolean;
   opusPlp: number; // 0..1
   maxMissedFrames: number; // audio frames (20ms)
-  volume: number; // 0.0 .. 2.0 (1.0 = 100%)
   inactivityMinutes: number; // minutes, 0 disables auto-disconnect
   preferOpusDemux: boolean; // try demux fast-path for pre-encoded opus
   microFadeMs: number; // fade-in at start to avoid ticks
@@ -21,7 +20,6 @@ const DEFAULTS: VoiceConfig = {
   opusPlp: 0.1,
   // Allow brief jitter without dropouts; reduces crackle on busy hosts
   maxMissedFrames: 50,
-  volume: 1.0,
   inactivityMinutes: 5,
   preferOpusDemux: true,
   microFadeMs: 12,
@@ -48,7 +46,6 @@ function load(): void {
         opusPlp: clamp(Number(parsed.opusPlp) || DEFAULTS.opusPlp, 0, 1),
         maxMissedFrames:
           Number(parsed.maxMissedFrames) || DEFAULTS.maxMissedFrames,
-        volume: clamp(Number(parsed.volume) || DEFAULTS.volume, 0, 2),
         inactivityMinutes:
           Math.max(0, Number(parsed.inactivityMinutes) || DEFAULTS.inactivityMinutes),
         preferOpusDemux: typeof parsed.preferOpusDemux === 'boolean' ? parsed.preferOpusDemux : DEFAULTS.preferOpusDemux,
@@ -83,7 +80,6 @@ export const ConfigStore = {
       opusFec: Boolean(newConfig.opusFec),
       opusPlp: clamp(newConfig.opusPlp, 0, 1),
       maxMissedFrames: Math.max(1, Math.round(newConfig.maxMissedFrames)),
-      volume: clamp(newConfig.volume, 0, 2),
       inactivityMinutes: Math.max(0, Math.round(newConfig.inactivityMinutes)),
       preferOpusDemux: Boolean(newConfig.preferOpusDemux),
       microFadeMs: Math.max(0, Math.round(newConfig.microFadeMs)),

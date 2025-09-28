@@ -42,7 +42,6 @@ Runtime quality control (no SSH):
 
 - Use `/quality show` to see the current encoder settings.
 - Use `/quality set` to change `bitrate`, `fec`, `plp`, and `max_missed_frames` live. Settings persist to `config.json` and apply to the next track.
-- Use `/volume get` and `/volume set percent:NN` to adjust loudness live (0–200%).
 - Use `/sleep start minutes:N [query:rain] [fadeout_ms:2000]` to loop a sound for N minutes and fade out automatically, or `/sleep cancel` to cancel.
 - Use `/rain [minutes:N]` as a shortcut to loop your rain file (and optionally set a sleep timer).
 - Use `/status` to see now playing, loop, and volume.

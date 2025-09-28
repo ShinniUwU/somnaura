@@ -1,6 +1,4 @@
 import fs from 'fs'; // <-- Added missing import
-import prism from 'prism-media';
-import type { Readable } from 'node:stream';
 import {
   AudioPlayer,
   AudioPlayerStatus,
@@ -12,13 +10,10 @@ import {
   NoSubscriberBehavior,
   VoiceConnection,
   VoiceConnectionStatus,
-  StreamType,
-  demuxProbe,
 } from '@discordjs/voice';
 import type { BaseGuildVoiceChannel } from 'discord.js'; // Use type import
 import type { Song } from '../types'; // Use type import
 import { ConfigStore } from './ConfigStore';
-import path from 'path';
 
 type VoiceErrorCallback = (error: Error) => void;
 
@@ -31,9 +26,7 @@ export class GuildPlaybackManager {
   private currentSong: Song | null = null;
   private isLooping: boolean = false;
   private onErrorCallback: VoiceErrorCallback;
-  // Keep references to custom streaming pipeline so we can clean them up
-  private ffmpegStream: prism.FFmpeg | null = null;
-  private volumeStream: prism.VolumeTransformer | null = null;
+  // No custom pipeline retained
   // Use ReturnType<...> for better type safety with setTimeout
   private inactivityTimeout: ReturnType<typeof setTimeout> | null = null; // <-- Changed type
   private static readonly DEFAULT_INACTIVITY_TIMEOUT_MS = 300_000; // 5 minutes
@@ -41,8 +34,7 @@ export class GuildPlaybackManager {
   private aloneTimer: ReturnType<typeof setTimeout> | null = null;
   private queue: Song[] = [];
 
-  // Fade control
-  private volumeFadeTimer: ReturnType<typeof setInterval> | null = null;
+  // No fade timers
 
   constructor(guildId: string, onError: VoiceErrorCallback) {
     this.guildId = guildId;
@@ -51,57 +43,7 @@ export class GuildPlaybackManager {
     console.log(`[Guild ${guildId}] Playback Manager created.`);
   }
 
-  // Build a high-quality, stable FFmpeg -> PCM pipeline with our own volume control.
-  // Using explicit resampling avoids drift and artifacts on long sessions.
-  private buildTunedResource(filePath: string, song: Song): AudioResource {
-    // Ensure any previous custom pipeline is torn down
-    this.destroyPipeline();
-
-    const args = [
-      '-analyzeduration', '0',
-      '-loglevel', 'error',
-      '-vn',
-      '-i', filePath,
-      // High-quality resample to Discord-friendly PCM
-      '-ac', '2',
-      '-ar', '48000',
-      // Use soxr resampler for better quality and stability
-      '-af', 'aresample=resampler=soxr:precision=28:osf=s16:ocl=stereo',
-      '-f', 's16le',
-      '-acodec', 'pcm_s16le',
-    ];
-
-    const ffmpeg = new prism.FFmpeg({ args });
-    this.ffmpegStream = ffmpeg;
-
-    const volLevel = Math.max(0, Math.min(2, ConfigStore.get().volume));
-    const volume = new prism.VolumeTransformer({ type: 's16le', volume: volLevel });
-    this.volumeStream = volume;
-
-    ffmpeg.on('error', () => {
-      // Errors are handled by player error handlers; keep this quiet to avoid spam
-    });
-
-    // Chain: FFmpeg PCM -> Volume -> Voice encoder
-    ffmpeg.pipe(volume);
-
-    // Use Raw PCM input type, let @discordjs/voice handle Opus encoding downstream
-    const resource = createAudioResource(volume as unknown as Readable, {
-      inputType: StreamType.Raw,
-      inlineVolume: false, // we control volume with the transformer above
-      metadata: song,
-    });
-
-    // Apply encoder tuning if available (resource.encoder is present for Raw streams)
-    if (resource.encoder) {
-      const { opusBitrate, opusFec, opusPlp } = ConfigStore.get();
-      try { resource.encoder.setBitrate(opusBitrate); } catch {}
-      try { resource.encoder.setFEC(Boolean(opusFec)); } catch {}
-      try { resource.encoder.setPLP(Math.max(0, Math.min(1, opusPlp))); } catch {}
-    }
-
-    return resource;
-  }
+  // No custom pipeline; rely on library resource builder for stability
 
   private createPlayer(): AudioPlayer {
     const { maxMissedFrames } = ConfigStore.get();
@@ -162,15 +104,7 @@ export class GuildPlaybackManager {
     return player;
   }
 
-  // Set live output volume on whichever volume transformer is active
-  private setOutputVolumeImmediate(v: number): void {
-    const vol = Math.max(0, Math.min(2, v));
-    if (this.resource?.volume) {
-      try { this.resource.volume.setVolume(vol); } catch {}
-    } else if (this.volumeStream) {
-      try { this.volumeStream.setVolume(vol); } catch {}
-    }
-  }
+  // Volume removed
 
   private scheduleInactivityDisconnect(): void {
     this.clearInactivityDisconnect();
@@ -192,20 +126,7 @@ export class GuildPlaybackManager {
     }
   }
 
-  private destroyPipeline(): void {
-    try {
-      if (this.volumeStream) {
-        try { this.volumeStream.unpipe(); } catch {}
-        try { this.volumeStream.destroy(); } catch {}
-        this.volumeStream = null;
-      }
-      if (this.ffmpegStream) {
-        try { this.ffmpegStream.unpipe(); } catch {}
-        try { this.ffmpegStream.destroy(); } catch {}
-        this.ffmpegStream = null;
-      }
-    } catch {}
-  }
+  private destroyPipeline(): void { /* no-op */ }
 
   public async join(channel: BaseGuildVoiceChannel): Promise<void> {
     if (
@@ -317,47 +238,27 @@ export class GuildPlaybackManager {
     console.log(`[Guild ${this.guildId}] Playing ${songToPlay.name}`);
     this.clearInactivityDisconnect();
     try {
-      const cfg = ConfigStore.get();
-      const ext = path.extname(songToPlay.path).toLowerCase();
-      const demuxCapable = ext === '.ogg' || ext === '.opus' || ext === '.webm';
-      const canDemux = cfg.preferOpusDemux && demuxCapable && cfg.volume === 1 && !this.sleepTimeout && !this.isLooping;
-
-      let resource: AudioResource;
-      if (canDemux) {
-        try {
-          const stream = fs.createReadStream(songToPlay.path);
-          const probe = await demuxProbe(stream as unknown as Readable);
-          resource = createAudioResource(probe.stream as unknown as Readable, {
-            inputType: probe.type,
-            inlineVolume: false,
-            metadata: songToPlay,
-          });
-        } catch (e) {
-          console.warn(`[Guild ${this.guildId}] demuxProbe failed, falling back to PCM:`, e);
-          resource = this.buildTunedResource(songToPlay.path, songToPlay);
-        }
-      } else {
-        // Build and play tuned FFmpeg -> PCM pipeline for maximum smoothness
-        resource = this.buildTunedResource(songToPlay.path, songToPlay);
+      // Build resource using library defaults for compatibility and stability
+      const resource: AudioResource = createAudioResource(songToPlay.path, {
+        metadata: songToPlay,
+        inlineVolume: false,
+      });
+      // Apply encoder tuning when available
+      if (resource.encoder) {
+        const { opusBitrate, opusFec, opusPlp } = ConfigStore.get();
+        try { resource.encoder.setBitrate(opusBitrate); } catch {}
+        try { resource.encoder.setFEC(Boolean(opusFec)); } catch {}
+        try { resource.encoder.setPLP(Math.max(0, Math.min(1, opusPlp))); } catch {}
       }
-
-      // Ensure initial volume is applied on our transformer
-      this.setOutputVolumeImmediate(cfg.volume);
       this.player.play(resource);
       this.resource = resource;
       this.currentSong = songToPlay;
-
-      // Micro fade-in to prevent edge ticks (only when we control volume)
-      if ((this.resource as any)?.volume || this.volumeStream) {
-        const ms = Math.max(0, cfg.microFadeMs || 0);
-        if (ms > 0) this.startFade(0.0001, cfg.volume, ms);
-      }
       return `Now playing: **${songToPlay.name}**`;
     } catch (playError) {
       console.error(`[Guild ${this.guildId}] Tuned pipeline failed, falling back:`, playError);
       // Fallback to library defaults if our tuned pipeline errors
       try {
-        const resource = createAudioResource(songToPlay.path, { metadata: songToPlay, inlineVolume: true });
+        const resource = createAudioResource(songToPlay.path, { metadata: songToPlay, inlineVolume: false });
         // If prism chose an internal Opus encoder, apply options when possible
         // Note: When FFmpeg(libopus) path is selected internally, encoder may be undefined
         if (resource.encoder) {
@@ -365,10 +266,6 @@ export class GuildPlaybackManager {
           try { resource.encoder.setBitrate(opusBitrate); } catch {}
           try { resource.encoder.setFEC(Boolean(opusFec)); } catch {}
           try { resource.encoder.setPLP(opusPlp); } catch {}
-        }
-        if (resource.volume) {
-          const { volume } = ConfigStore.get();
-          try { resource.volume.setVolume(volume); } catch {}
         }
         this.player.play(resource);
         this.resource = resource;
@@ -564,9 +461,6 @@ export class GuildPlaybackManager {
       // @ts-ignore accessing behaviors directly
       this.player.behaviors.maxMissedFrames = maxMissedFrames;
     } catch {}
-    // Also adjust live volume if playing
-    const { volume } = ConfigStore.get();
-    this.setOutputVolumeImmediate(volume);
   }
 
   public isLoopEnabled(): boolean {
@@ -581,55 +475,11 @@ export class GuildPlaybackManager {
     return `Looping ${status}${songName}.`;
   }
 
-  public setVolume(vol: number): string {
-    const clamped = Math.max(0, Math.min(2, vol));
-    ConfigStore.update({ volume: clamped });
-    this.setOutputVolumeImmediate(clamped);
-    return `Volume set to ${(clamped * 100).toFixed(0)}%`;
-  }
+  public setVolume(_vol: number): string { return 'Volume control disabled.'; }
 
-  private startFade(from: number, to: number, durationMs: number): void {
-    // Choose the correct volume control interface (inlineVolume or PCM transformer)
-    const volumeCtl: { setVolume: (v: number) => void } | null =
-      (this.resource && this.resource.volume) ? this.resource.volume : (this.volumeStream ? this.volumeStream : null);
-    if (!volumeCtl) return;
-    if (this.volumeFadeTimer) {
-      clearInterval(this.volumeFadeTimer);
-      this.volumeFadeTimer = null;
-    }
-    const steps = Math.max(1, Math.floor(durationMs / 50));
-    let i = 0;
-    try { volumeCtl.setVolume(from); } catch {}
-    this.volumeFadeTimer = setInterval(() => {
-      i++;
-      const v = from + (to - from) * (i / steps);
-      try { volumeCtl.setVolume(v); } catch {}
-      if (i >= steps) {
-        if (this.volumeFadeTimer) clearInterval(this.volumeFadeTimer);
-        this.volumeFadeTimer = null;
-      }
-    }, 50);
-  }
+  private startFade(_from: number, _to: number, _durationMs: number): void { /* no-op */ }
 
-  public async fadeOutStop(durationMs = 1500): Promise<void> {
-    const hasCtl = Boolean((this.resource as any)?.volume || this.volumeStream);
-    if (!hasCtl) {
-      this.stop();
-      return;
-    }
-    try {
-      const current = ConfigStore.get().volume;
-      this.startFade(current, 0.0001, durationMs);
-      await new Promise((r) => setTimeout(r, durationMs + 50));
-    } finally {
-      this.stop();
-      // restore default volume for next play
-      const v = ConfigStore.get().volume;
-      if (this.resource?.volume) {
-        try { this.resource.volume.setVolume(v); } catch {}
-      }
-    }
-  }
+  public async fadeOutStop(_durationMs = 0): Promise<void> { this.stop(); }
 
   public startSleepTimer(durationMs: number, fadeOutMs = 2000): string {
     if (this.sleepTimeout) {

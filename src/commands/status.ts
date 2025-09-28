@@ -4,7 +4,6 @@ import {
 } from 'discord.js';
 import type { Command } from '../types';
 import type { GuildPlaybackManager } from '../lib/GuildPlaybackManager';
-import { ConfigStore } from '../lib/ConfigStore';
 
 export default {
   data: new SlashCommandBuilder()
@@ -16,8 +15,7 @@ export default {
     manager: GuildPlaybackManager,
   ) {
     const loopState = manager.isLoopEnabled() ? 'on' : 'off';
-    const vol = (ConfigStore.get().volume * 100).toFixed(0) + '%';
-    const content = `${manager.getStatus()}\nLoop: ${loopState}\nVolume: ${vol}`;
+    const content = `${manager.getStatus()}\nLoop: ${loopState}`;
     await interaction.reply({ content });
   },
 } as Command;
