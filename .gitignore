@@ -19,3 +19,4 @@ songs/*
 
 # Allow example env file
 !.env.example
+*.diff
