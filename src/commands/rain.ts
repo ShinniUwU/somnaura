@@ -6,6 +6,7 @@ import {
 import type { Command } from '../types';
 import type { GuildPlaybackManager } from '../lib/GuildPlaybackManager';
 import { findSong } from '../utils/findSong';
+import { logger, type LogContext } from '../utils/logger';
 
 export default {
   data: new SlashCommandBuilder()
@@ -23,6 +24,7 @@ export default {
     interaction: ChatInputCommandInteraction,
     manager: GuildPlaybackManager,
   ) {
+    const ctx: LogContext = { requestId: (interaction as any).requestId, command: 'rain', guildId: interaction.guildId ?? undefined };
     await interaction.deferReply();
 
     if (!interaction.member || !('voice' in interaction.member)) {
@@ -40,15 +42,20 @@ export default {
     const song = findSong('rain');
     if (!song) return interaction.editReply({ content: 'No file matching "rain" found. Use /list.' });
 
-    await manager.join(voiceChannel);
-    manager.setLoop(true);
-    const msg = await manager.play(song);
-    const mins = (interaction.options.get('minutes')?.value as number | undefined);
-    if (mins && mins > 0) {
-      const t = manager.startSleepTimer(mins * 60000, 2000);
-      await interaction.editReply({ content: `${msg} (looping)\n${t}` });
-    } else {
-      await interaction.editReply({ content: `${msg} (looping)` });
+    try {
+      await manager.join(voiceChannel, { requestId: ctx.requestId });
+      manager.setLoop(true);
+      const msg = await manager.play(song, { requestId: ctx.requestId });
+      const mins = (interaction.options.get('minutes')?.value as number | undefined);
+      if (mins && mins > 0) {
+        const t = manager.startSleepTimer(mins * 60000, 2000);
+        await interaction.editReply({ content: `${msg} (looping)\n${t}` });
+      } else {
+        await interaction.editReply({ content: `${msg} (looping)` });
+      }
+    } catch (error: any) {
+      logger.error('Rain command failed', ctx, error);
+      await interaction.editReply({ content: `Failed to play rain: ${error.message || error}` });
     }
   },
 } as Command;

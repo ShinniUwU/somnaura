@@ -1,21 +1,27 @@
-import fs from 'fs'; // <-- Added missing import
+import fs from 'fs';
 import {
   AudioPlayer,
   AudioPlayerStatus,
   createAudioPlayer,
   createAudioResource,
   type AudioResource,
-  entersState, // <-- Added explicit import
+  entersState,
   joinVoiceChannel,
   NoSubscriberBehavior,
   VoiceConnection,
   VoiceConnectionStatus,
 } from '@discordjs/voice';
-import type { BaseGuildVoiceChannel } from 'discord.js'; // Use type import
-import type { Song } from '../types'; // Use type import
+import type { BaseGuildVoiceChannel } from 'discord.js';
+import type { Song } from '../types';
 import { ConfigStore } from './ConfigStore';
+import { SongQueue } from './SongQueue';
+import { AsyncLock } from '../utils/asyncLock';
+import { logger, type LogContext } from '../utils/logger';
+import { PlaybackStateMachine, type PlaybackState } from './PlaybackStateMachine';
+import { TimerManager } from './TimerManager';
 
 type VoiceErrorCallback = (error: Error) => void;
+type Context = Pick<LogContext, 'requestId'>;
 
 export class GuildPlaybackManager {
   public readonly guildId: string;
@@ -24,27 +30,27 @@ export class GuildPlaybackManager {
   private resource: AudioResource | null = null;
   private subscription: import('@discordjs/voice').PlayerSubscription | null = null;
   private currentSong: Song | null = null;
-  private isLooping: boolean = false;
-  private onErrorCallback: VoiceErrorCallback;
-  // No custom pipeline retained
-  // Use ReturnType<...> for better type safety with setTimeout
-  private inactivityTimeout: ReturnType<typeof setTimeout> | null = null; // <-- Changed type
+  private isLooping = false;
+  private readonly onErrorCallback: VoiceErrorCallback;
+  private inactivityTimeout: ReturnType<typeof setTimeout> | null = null;
   private static readonly DEFAULT_INACTIVITY_TIMEOUT_MS = 300_000; // 5 minutes
   private sleepTimeout: ReturnType<typeof setTimeout> | null = null;
   private aloneTimer: ReturnType<typeof setTimeout> | null = null;
   private fadeInterval: ReturnType<typeof setInterval> | null = null;
-  private queue: Song[] = [];
-
-  // No fade timers
+  private readonly queue = new SongQueue();
+  private readonly playLock = new AsyncLock();
+  private readonly joinLock = new AsyncLock();
+  private readonly state = new PlaybackStateMachine();
+  private readonly timers = new TimerManager();
+  private connectionListeners: Array<{ event: VoiceConnectionStatus | 'error'; listener: (...args: any[]) => void }> = [];
+  private watchdog: ReturnType<typeof setInterval> | null = null;
 
   constructor(guildId: string, onError: VoiceErrorCallback) {
     this.guildId = guildId;
     this.player = this.createPlayer();
     this.onErrorCallback = onError;
-    console.log(`[Guild ${guildId}] Playback Manager created.`);
+    logger.info('Playback Manager created', { guildId, scope: 'manager', event: 'manager_created' });
   }
-
-  // No custom pipeline; rely on library resource builder for stability
 
   private createPlayer(): AudioPlayer {
     const { maxMissedFrames } = ConfigStore.get();
@@ -56,326 +62,287 @@ export class GuildPlaybackManager {
     });
 
     player.on(AudioPlayerStatus.Idle, (oldState) => {
-      if (oldState.status === AudioPlayerStatus.Playing) {
-        console.log(`[Guild ${this.guildId}] Player Idle.`);
-        const previousSong = this.currentSong; // Store before clearing
-        this.currentSong = null;
-        if (this.isLooping && oldState.resource.metadata) {
-          // Use the song data attached to the resource metadata when it was created
-          const loopedSong = oldState.resource.metadata as Song;
-          // Double-check if it's the same song in case state changed rapidly
-          if (previousSong?.path === loopedSong.path) {
-            console.log(`[Guild ${this.guildId}] Looping: ${loopedSong.name}`);
-            this.play(loopedSong).catch((e) =>
-              console.error(`[Guild ${this.guildId}] Error self-looping:`, e),
-            ); // Re-play the same song
-          } else {
-            console.log(
-              `[Guild ${this.guildId}] Loop was enabled but song changed before looping.`,
-            );
-            this.scheduleInactivityDisconnect();
-          }
-        } else if (this.queue.length > 0) {
-          const next = this.queue.shift()!;
-          this.play(next).catch((e) => {
-            console.error(`[Guild ${this.guildId}] Failed to play queued song:`, e);
-            this.scheduleInactivityDisconnect();
-          });
-        } else {
-          this.scheduleInactivityDisconnect();
-        }
-      }
+      if (oldState.status !== AudioPlayerStatus.Playing) return;
+      void this.handleIdle(oldState.resource);
     });
 
     player.on('error', (error) => {
-      console.error(
-        `[Guild ${this.guildId}] Audio Player Error: ${error.message}`,
-        error,
-      );
-      if (error.resource && error.resource.metadata) {
-        const erroredSong = error.resource.metadata as Song;
-        console.error(
-          `[Guild ${this.guildId}] Error occurred during playback of: ${erroredSong.name}`,
-        );
-      }
-      this.stop(); // Stop playback
+      const songName =
+        (error.resource?.metadata as Song | undefined)?.name ?? 'unknown';
+      logger.error(`Audio player error: ${error.message}`, {
+        guildId: this.guildId,
+        scope: 'player',
+        event: 'player_error',
+      }, { song: songName, stack: error.stack });
+      this.stop();
       this.scheduleInactivityDisconnect();
     });
 
     return player;
   }
 
-  // Volume removed
+  private async handleIdle(resource: AudioResource | undefined): Promise<void> {
+    const previous = resource?.metadata as Song | undefined;
+    this.currentSong = null;
+    if (this.isLooping && previous) {
+      logger.info('Looping current song', { guildId: this.guildId, scope: 'idle', event: 'loop' }, { song: previous.name });
+      try {
+        await this.play(previous);
+      } catch (e) {
+        logger.error('Failed to loop song', { guildId: this.guildId, scope: 'idle', event: 'loop_error' }, e);
+        this.scheduleInactivityDisconnect();
+      }
+      return;
+    }
+
+    const next = this.queue.dequeue();
+    if (next) {
+      logger.info('Dequeued next song', { guildId: this.guildId, scope: 'idle', event: 'dequeue' }, { song: next.name });
+      try {
+        await this.play(next);
+      } catch (e) {
+        logger.error('Failed to play queued song', { guildId: this.guildId, scope: 'idle', event: 'queue_play_error' }, e);
+        this.scheduleInactivityDisconnect();
+      }
+      return;
+    }
+
+    this.scheduleInactivityDisconnect();
+    this.stateSafely('READY');
+  }
 
   private scheduleInactivityDisconnect(): void {
     this.clearInactivityDisconnect();
-    console.log(`[Guild ${this.guildId}] Scheduling inactivity disconnect.`);
     const mins = ConfigStore.get().inactivityMinutes;
-    if (mins <= 0) return; // disabled
-    const ms = Math.round(mins * 60_000);
-    this.inactivityTimeout = setTimeout(() => {
-      console.log(`[Guild ${this.guildId}] Disconnecting due to inactivity.`);
+    if (mins <= 0) return;
+    const ms = Math.round(mins * 60_000) || GuildPlaybackManager.DEFAULT_INACTIVITY_TIMEOUT_MS;
+    logger.info('Scheduling inactivity disconnect', { guildId: this.guildId, scope: 'lifecycle', event: 'inactivity_schedule' }, { delayMs: ms });
+    this.inactivityTimeout = this.timers.setTimeout(() => {
+      logger.info('Disconnecting due to inactivity', { guildId: this.guildId, scope: 'lifecycle', event: 'inactivity_leave' });
       this.leave();
-    }, ms || GuildPlaybackManager.DEFAULT_INACTIVITY_TIMEOUT_MS);
+    }, ms);
   }
 
   private clearInactivityDisconnect(): void {
     if (this.inactivityTimeout) {
-      clearTimeout(this.inactivityTimeout);
+      this.timers.clear(this.inactivityTimeout);
       this.inactivityTimeout = null;
-      // console.log(`[Guild ${this.guildId}] Cleared inactivity disconnect timer.`); // Can be noisy
     }
   }
 
   private destroyPipeline(): void { /* no-op */ }
 
-  public async join(channel: BaseGuildVoiceChannel): Promise<void> {
-    if (
-      this.connection &&
-      this.connection.joinConfig.channelId === channel.id &&
-      this.connection.state.status !== VoiceConnectionStatus.Destroyed
-    ) {
-      // console.log(`[Guild ${this.guildId}] Already connected to ${channel.name}`); // Can be noisy
-      if (this.connection.state.status === VoiceConnectionStatus.Ready && !this.subscription) {
-        console.log(`[Guild ${this.guildId}] Re-subscribing player.`);
-        this.subscription = this.connection.subscribe(this.player) ?? null;
+  public async join(channel: BaseGuildVoiceChannel, ctx?: Context): Promise<void> {
+    await this.joinLock.runExclusive(async () => {
+      if (
+        this.connection &&
+        this.connection.joinConfig.channelId === channel.id &&
+        this.connection.state.status !== VoiceConnectionStatus.Destroyed
+      ) {
+        if (this.connection.state.status === VoiceConnectionStatus.Ready && !this.subscription) {
+          logger.info('Re-subscribing player after reconnect', { guildId: this.guildId, scope: 'join', requestId: ctx?.requestId, event: 'resubscribe' });
+          this.subscription = this.connection.subscribe(this.player) ?? null;
+        }
+        this.clearInactivityDisconnect();
+        return;
       }
-      this.clearInactivityDisconnect();
-      return;
-    }
 
-    if (this.connection) {
-      console.log(
-        `[Guild ${this.guildId}] Leaving previous channel before joining ${channel.name}`,
-      );
-      this.leave(true);
-    }
+      if (this.connection) {
+        logger.info('Leaving previous channel before joining new one', { guildId: this.guildId, scope: 'join', requestId: ctx?.requestId, event: 'leave_before_join' });
+        this.leave(true);
+      }
 
-    console.log(`[Guild ${this.guildId}] Attempting to join ${channel.name}`);
-    const newConnection = joinVoiceChannel({
-      channelId: channel.id,
-      guildId: this.guildId,
-      adapterCreator: channel.guild.voiceAdapterCreator,
-      selfDeaf: true, // Good practice to self-deafen
-    });
+      logger.info(`Attempting to join ${channel.name}`, { guildId: this.guildId, scope: 'join', requestId: ctx?.requestId, event: 'join_attempt' });
+      this.stateSafely('JOINING');
+      const newConnection = joinVoiceChannel({
+        channelId: channel.id,
+        guildId: this.guildId,
+        adapterCreator: channel.guild.voiceAdapterCreator,
+        selfDeaf: true,
+      });
 
-    newConnection.on(VoiceConnectionStatus.Destroyed, () => {
-      console.log(`[Guild ${this.guildId}] Connection Destroyed.`);
-      this.cleanup(false); // Cleanup state but don't try to destroy connection again
-    });
+      const onDestroyed = () => {
+        logger.warn('Connection destroyed', { guildId: this.guildId, scope: 'join', requestId: ctx?.requestId, event: 'destroyed' });
+        this.cleanup(false);
+      };
+      newConnection.on(VoiceConnectionStatus.Destroyed, onDestroyed);
+      this.connectionListeners.push({ event: VoiceConnectionStatus.Destroyed, listener: onDestroyed });
 
-    newConnection.on('error', (error) => {
-      console.error(
-        `[Guild ${this.guildId}] Voice Connection Error: ${error.message}`,
-      );
-      this.leave(true);
-      this.onErrorCallback(error);
-    });
+      const onError = (error: Error) => {
+        logger.error(`Voice connection error: ${error.message}`, { guildId: this.guildId, scope: 'join', requestId: ctx?.requestId, event: 'connection_error' }, error);
+        this.leave(true);
+        this.onErrorCallback(error);
+      };
+      newConnection.on('error', onError);
+      this.connectionListeners.push({ event: 'error', listener: onError });
 
-    newConnection.on(
-      VoiceConnectionStatus.Disconnected,
-      async (oldState, newState) => {
-        console.warn(`[Guild ${this.guildId}] Connection Disconnected.`);
+      const onDisconnected = async () => {
+        logger.warn('Connection disconnected, attempting recovery', { guildId: this.guildId, scope: 'join', requestId: ctx?.requestId, event: 'disconnected' });
         try {
           await Promise.race([
             entersState(newConnection, VoiceConnectionStatus.Signalling, 5_000),
             entersState(newConnection, VoiceConnectionStatus.Connecting, 5_000),
           ]);
-          console.log(`[Guild ${this.guildId}] Connection recovered.`);
+          logger.info('Connection recovered after disconnect', { guildId: this.guildId, scope: 'join', requestId: ctx?.requestId, event: 'recovered' });
         } catch (error) {
-          // Don't destroy connection if it's already destroyed (e.g., during graceful shutdown)
           if (newConnection.state.status !== VoiceConnectionStatus.Destroyed) {
-            console.log(
-              `[Guild ${this.guildId}] Connection permanently lost, cleaning up.`,
-            );
-            this.leave(true); // Attempt cleanup
+            logger.warn('Connection permanently lost; cleaning up', { guildId: this.guildId, scope: 'join', requestId: ctx?.requestId, event: 'lost' }, error);
+            this.leave(true);
           }
         }
-      },
-    );
+      };
+      newConnection.on(VoiceConnectionStatus.Disconnected, onDisconnected);
+      this.connectionListeners.push({ event: VoiceConnectionStatus.Disconnected, listener: onDisconnected });
 
-    try {
-      // Wait for the connection to be ready
-      await entersState(newConnection, VoiceConnectionStatus.Ready, 15_000);
-      this.connection = newConnection;
-      this.subscription = this.connection.subscribe(this.player) ?? null;
-      console.log(
-        `[Guild ${this.guildId}] Successfully joined ${channel.name} and subscribed player.`,
-      );
-      this.clearInactivityDisconnect();
-    } catch (error) {
-      console.error(
-        `[Guild ${this.guildId}] Failed to join or become ready in ${channel.name}:`,
-        error,
-      );
-      // Check status before destroying
-      if (newConnection.state.status !== VoiceConnectionStatus.Destroyed) {
-        newConnection.destroy();
+      try {
+        await entersState(newConnection, VoiceConnectionStatus.Ready, 15_000);
+        this.connection = newConnection;
+        this.subscription = this.connection.subscribe(this.player) ?? null;
+        this.stateSafely('READY');
+        logger.info(`Joined ${channel.name} and subscribed player`, { guildId: this.guildId, scope: 'join', requestId: ctx?.requestId, event: 'joined' });
+        this.startWatchdog();
+        this.clearInactivityDisconnect();
+      } catch (error) {
+        logger.error('Failed to become ready in target channel', { guildId: this.guildId, scope: 'join', requestId: ctx?.requestId, event: 'join_failed' }, error);
+        if (newConnection.state.status !== VoiceConnectionStatus.Destroyed) {
+          newConnection.destroy();
+        }
+        this.connection = null;
+        this.stateSafely('IDLE');
+        throw new Error('Failed to establish a stable voice connection.');
       }
-      this.connection = null;
-      throw new Error('Failed to establish a stable voice connection.');
-    }
+    });
   }
 
-  // Note: Renamed parameter for clarity
-  public async play(songToPlay: Song): Promise<string> {
-    if (
-      !this.connection ||
-      this.connection.state.status !== VoiceConnectionStatus.Ready
-    ) {
-      throw new Error(
-        'Not connected to a voice channel or connection not ready.',
-      );
-    }
-    if (!fs.existsSync(songToPlay.path)) {
-      console.error(
-        `[Guild ${this.guildId}] Error: Song file not found at path: ${songToPlay.path}`,
-      );
-      // Reload songs in case file was added after startup?
-      // reloadSongs(); // Assuming reloadSongs is imported from utils
-      throw new Error(`Could not find the file for "${songToPlay.name}".`);
-    }
+  public async play(songToPlay: Song, ctx?: Context): Promise<string> {
+    return this.playLock.runExclusive(async () => {
+      if (!this.state.canTransition('PLAYING')) {
+        logger.warn('Play ignored due to invalid state', { guildId: this.guildId, scope: 'play', requestId: ctx?.requestId, event: 'invalid_state' }, { state: this.state.getState() });
+        return 'Unable to play right now.';
+      }
+      if (
+        !this.connection ||
+        this.connection.state.status !== VoiceConnectionStatus.Ready
+      ) {
+        throw new Error('Not connected to a voice channel or connection not ready.');
+      }
+      if (!fs.existsSync(songToPlay.path)) {
+        const message = `Song file not found at path: ${songToPlay.path}`;
+        logger.error(message, { guildId: this.guildId, scope: 'play', requestId: ctx?.requestId, event: 'missing_file' });
+        throw new Error(`Could not find the file for "${songToPlay.name}".`);
+      }
 
-    console.log(`[Guild ${this.guildId}] Playing ${songToPlay.name}`);
-    this.clearInactivityDisconnect();
-    try {
-      // Build resource using library defaults for compatibility and stability
-      const resource: AudioResource = createAudioResource(songToPlay.path, {
-        metadata: songToPlay,
-        inlineVolume: true,
-      });
-      // Apply encoder tuning when available
-      if (resource.encoder) {
-        const { opusBitrate, opusFec, opusPlp } = ConfigStore.get();
-        try { resource.encoder.setBitrate(opusBitrate); } catch {}
-        try { resource.encoder.setFEC(Boolean(opusFec)); } catch {}
-        try { resource.encoder.setPLP(Math.max(0, Math.min(1, opusPlp))); } catch {}
-      }
-      // Gentle fade-in to avoid pops at start
-      const { microFadeMs } = ConfigStore.get();
-      if (resource.volume) {
-        resource.volume.setVolume(Math.max(0, microFadeMs > 0 ? 0 : 1));
-      }
-      this.player.play(resource);
-      this.resource = resource;
-      this.currentSong = songToPlay;
-      if (resource.volume && microFadeMs > 0) {
-        this.startFade(0, 1, microFadeMs).catch(() => {});
-      }
-      return `Now playing: **${songToPlay.name}**`;
-    } catch (playError) {
-      console.error(`[Guild ${this.guildId}] Tuned pipeline failed, falling back:`, playError);
-      // Fallback to library defaults if our tuned pipeline errors
+      logger.info('Starting playback', { guildId: this.guildId, scope: 'play', requestId: ctx?.requestId, event: 'play_start' }, { song: songToPlay.name });
+      this.clearInactivityDisconnect();
+      const { microFadeMs, opusBitrate, opusFec, opusPlp } = ConfigStore.get();
+
       try {
-        const resource = createAudioResource(songToPlay.path, { metadata: songToPlay, inlineVolume: true });
-        // If prism chose an internal Opus encoder, apply options when possible
-        // Note: When FFmpeg(libopus) path is selected internally, encoder may be undefined
+        const resource: AudioResource = createAudioResource(songToPlay.path, {
+          metadata: songToPlay,
+          inlineVolume: true,
+        });
         if (resource.encoder) {
-          const { opusBitrate, opusFec, opusPlp } = ConfigStore.get();
-          try { resource.encoder.setBitrate(opusBitrate); } catch {}
-          try { resource.encoder.setFEC(Boolean(opusFec)); } catch {}
-          try { resource.encoder.setPLP(opusPlp); } catch {}
+          try { resource.encoder.setBitrate(opusBitrate); } catch (e) { logger.debug('setBitrate failed', { guildId: this.guildId, scope: 'play', requestId: ctx?.requestId }, e); }
+          try { resource.encoder.setFEC(Boolean(opusFec)); } catch (e) { logger.debug('setFEC failed', { guildId: this.guildId, scope: 'play', requestId: ctx?.requestId }, e); }
+          try { resource.encoder.setPLP(Math.max(0, Math.min(1, opusPlp))); } catch (e) { logger.debug('setPLP failed', { guildId: this.guildId, scope: 'play', requestId: ctx?.requestId }, e); }
         }
-        const { microFadeMs } = ConfigStore.get();
         if (resource.volume) {
           resource.volume.setVolume(Math.max(0, microFadeMs > 0 ? 0 : 1));
         }
         this.player.play(resource);
         this.resource = resource;
         this.currentSong = songToPlay;
+        this.stateSafely('PLAYING');
         if (resource.volume && microFadeMs > 0) {
-          this.startFade(0, 1, microFadeMs).catch(() => {});
+          await this.startFade(0, 1, microFadeMs);
         }
         return `Now playing: **${songToPlay.name}**`;
-      } catch (fallbackError) {
-        console.error(
-          `[Guild ${this.guildId}] Error creating resource or playing (Path: ${songToPlay.path}):`,
-          fallbackError,
-        );
+      } catch (error) {
+        logger.error('Error creating resource or playing', { guildId: this.guildId, scope: 'play', requestId: ctx?.requestId, event: 'play_error' }, error);
         this.currentSong = null;
+        this.stateSafely('READY');
         this.scheduleInactivityDisconnect();
-        throw new Error(
-          `Failed to play "${songToPlay.name}". File might be corrupted or unsupported.`,
-        );
+        throw new Error(`Failed to play "${songToPlay.name}". File might be corrupted or unsupported.`);
       }
-    }
+    });
   }
 
-  public stop(): void {
+  public stop(ctx?: Context): void {
     if (this.player.state.status !== AudioPlayerStatus.Idle) {
-      console.log(`[Guild ${this.guildId}] Stopping playback.`);
+      logger.info('Stopping playback', { guildId: this.guildId, scope: 'control', requestId: ctx?.requestId, event: 'stop' });
       this.clearFade();
       this.player.stop(true);
       this.resource = null;
-      this.currentSong = null; // Clear current song when stopped
-      // Make sure to tear down any custom pipeline
+      this.currentSong = null;
       this.destroyPipeline();
-      // Note: We keep the loop state as is. User might want it on for the next song.
       this.scheduleInactivityDisconnect();
+      this.stateSafely('READY');
     } else {
-      console.log(
-        `[Guild ${this.guildId}] Stop requested but player already idle.`,
-      );
+      logger.debug('Stop requested but player already idle', { guildId: this.guildId, scope: 'control', requestId: ctx?.requestId, event: 'stop_ignored' });
     }
   }
 
-  public pause(): boolean {
+  public pause(ctx?: Context): boolean {
     const ok = this.player.pause(true);
-    if (ok) this.scheduleInactivityDisconnect();
+    if (ok) {
+      logger.info('Paused playback', { guildId: this.guildId, scope: 'control', requestId: ctx?.requestId, event: 'pause' });
+      this.scheduleInactivityDisconnect();
+    }
     return ok;
   }
 
-  public resume(): boolean {
+  public resume(ctx?: Context): boolean {
     const ok = this.player.unpause();
-    if (ok) this.clearInactivityDisconnect();
+    if (ok) {
+      logger.info('Resumed playback', { guildId: this.guildId, scope: 'control', requestId: ctx?.requestId, event: 'resume' });
+      this.clearInactivityDisconnect();
+    }
     return ok;
   }
 
-  public leave(silent = false): void {
-    console.log(`[Guild ${this.guildId}] Leave requested.`);
-    this.cleanup(); // Call full cleanup
+  public leave(silent = false, ctx?: Context): void {
+    logger.info('Leave requested', { guildId: this.guildId, scope: 'lifecycle', requestId: ctx?.requestId, event: 'leave' });
+    this.cleanup();
     if (!silent) {
-      console.log(`[Guild ${this.guildId}] Left voice channel.`);
+      logger.info('Left voice channel', { guildId: this.guildId, scope: 'lifecycle', requestId: ctx?.requestId, event: 'left' });
     }
   }
 
-  // Queue controls
   public enqueue(song: Song): string {
-    this.queue.push(song);
-    return `Queued: ${song.name} (${this.queue.length} in queue)`;
+    return this.queue.enqueue(song);
   }
 
-  public getQueue(): Song[] { return [...this.queue]; }
-  public clearQueue(): void { this.queue = []; }
+  public getQueue(): Song[] { return this.queue.list(); }
+  public clearQueue(): void { this.queue.clear(); }
 
-  public async skip(fadeMs = 250): Promise<string> {
-    if (!this.currentSong) {
-      return 'Nothing is playing.';
-    }
-    try {
-      await this.fadeOutStop(fadeMs);
-    } catch {
-      this.stop();
-    }
-    if (this.queue.length > 0) {
-      const next = this.queue.shift()!;
-      await this.play(next);
-      return `Skipped. Now playing: ${next.name}`;
-    }
-    return 'Skipped. Queue is empty.';
+  public async skip(fadeMs = 250, ctx?: Context): Promise<string> {
+    return this.playLock.runExclusive(async () => {
+      if (!this.currentSong) {
+        logger.warn('Skip ignored: no track playing', { guildId: this.guildId, scope: 'control', requestId: ctx?.requestId, event: 'skip_ignored' });
+        return 'Nothing is playing.';
+      }
+      try {
+        await this.fadeOutStop(fadeMs);
+      } catch (e) {
+        logger.warn('Fade-out during skip failed, forcing stop', { guildId: this.guildId, scope: 'control', requestId: ctx?.requestId, event: 'skip_fade_fail' }, e);
+        this.stop(ctx);
+      }
+      const next = this.queue.dequeue();
+      if (next) {
+        await this.play(next, ctx);
+        return `Skipped. Now playing: ${next.name}`;
+      }
+      return 'Skipped. Queue is empty.';
+    });
   }
 
   public toggleLoop(): string {
-    // Allow toggling loop even if paused or idle, applies to next song if current is null
-    // if (!this.currentSong || this.player.state.status === AudioPlayerStatus.Idle) {
-    //    return 'No song is currently playing or ready to be looped.';
-    // }
     this.isLooping = !this.isLooping;
     const status = this.isLooping ? 'enabled' : 'disabled';
     const songName = this.currentSong
       ? ` for **${this.currentSong.name}**`
       : '';
-    console.log(`[Guild ${this.guildId}] Looping set to ${this.isLooping}`);
+    logger.info(`Looping ${status}`, { guildId: this.guildId, scope: 'control', event: 'loop_toggle' });
     return `Looping ${status}${songName}.`;
   }
 
@@ -418,67 +385,76 @@ export class GuildPlaybackManager {
   public scheduleAloneDisconnect(): void {
     const { autoLeaveAlone, aloneGraceSeconds } = ConfigStore.get();
     if (!autoLeaveAlone) return;
-    if (this.aloneTimer) return; // already scheduled
+    if (this.aloneTimer) return;
     const ms = Math.max(5, aloneGraceSeconds) * 1000;
-    this.aloneTimer = setTimeout(() => {
-      this.fadeOutStop(1000).catch(() => this.stop());
+    this.aloneTimer = this.timers.setTimeout(() => {
+      logger.info('Auto-leaving because alone in channel', { guildId: this.guildId, scope: 'lifecycle', event: 'auto_leave' });
+      this.fadeOutStop(1000).catch((e) => {
+        logger.warn('Auto-leave fade failed, forcing stop', { guildId: this.guildId, scope: 'lifecycle', event: 'auto_leave_fade_fail' }, e);
+        this.stop();
+      });
       this.leave(true);
       this.aloneTimer = null;
     }, ms);
-    console.log(`[Guild ${this.guildId}] Scheduled auto-leave in ${ms}ms (alone).`);
+    logger.info(`Scheduled auto-leave when alone`, { guildId: this.guildId, scope: 'lifecycle', event: 'auto_leave_schedule' }, { delayMs: ms });
   }
 
   public cancelAloneDisconnect(): void {
     if (this.aloneTimer) {
-      clearTimeout(this.aloneTimer);
+      this.timers.clear(this.aloneTimer);
       this.aloneTimer = null;
-      console.log(`[Guild ${this.guildId}] Cancelled auto-leave (not alone).`);
+      logger.info('Cancelled auto-leave (not alone)', { guildId: this.guildId, scope: 'lifecycle', event: 'auto_leave_cancel' });
     }
   }
 
-  // Internal cleanup method
   private cleanup(destroyConnection = true): void {
-    console.log(
-      `[Guild ${this.guildId}] Cleaning up resources (destroyConnection: ${destroyConnection})...`,
-    );
+    logger.info('Cleaning up resources', { guildId: this.guildId, scope: 'lifecycle', event: 'cleanup' }, { destroyConnection });
     this.clearFade();
     this.clearInactivityDisconnect();
+    this.timers.clearAll();
     if (this.player) {
       this.player.stop(true);
     }
-    // Always dispose of any custom streams
     this.destroyPipeline();
     if (this.subscription) {
-      try { this.subscription.unsubscribe(); } catch {}
+      try { this.subscription.unsubscribe(); } catch (e) { logger.debug('Unsubscribe failed', { guildId: this.guildId, scope: 'lifecycle', event: 'unsubscribe_fail' }, e); }
       this.subscription = null;
     }
     if (destroyConnection && this.connection) {
-      // Check status before destroying
+      for (const { event, listener } of this.connectionListeners) {
+        this.connection.off(event as any, listener);
+      }
+      this.connectionListeners = [];
       if (this.connection.state.status !== VoiceConnectionStatus.Destroyed) {
         this.connection.destroy();
       }
-      this.connection = null; // Clear reference
+      this.connection = null;
+    }
+    if (this.watchdog) {
+      clearInterval(this.watchdog);
+      this.watchdog = null;
     }
 
     this.currentSong = null;
-    // Keep player instance reusable unless destroying the whole manager
+    if (this.state.getState() !== 'DESTROYED') this.stateSafely('IDLE');
   }
 
   public destroy(): void {
-    console.log(`[Guild ${this.guildId}] Destroying Playback Manager.`);
-    this.cleanup(true); // Ensure connection is destroyed
-    this.isLooping = false; // Reset on full destroy
-    // Player has no explicit destroy, rely on garbage collection
+    logger.info('Destroying playback manager', { guildId: this.guildId, scope: 'lifecycle', event: 'destroy' });
+    this.cleanup(true);
+    this.isLooping = false;
+    this.stateSafely('DESTROYED');
   }
 
-  // Apply updated config to running player
   public applyConfig(): void {
     const { maxMissedFrames } = ConfigStore.get();
     try {
-      // Adjust tolerance without rebuilding the player
       // @ts-ignore accessing behaviors directly
       this.player.behaviors.maxMissedFrames = maxMissedFrames;
-    } catch {}
+      logger.info('Updated maxMissedFrames', { guildId: this.guildId, scope: 'config', event: 'config_update' }, { maxMissedFrames });
+    } catch (e) {
+      logger.warn('Failed to update maxMissedFrames on player', { guildId: this.guildId, scope: 'config', event: 'config_update_fail' }, e);
+    }
   }
 
   public isLoopEnabled(): boolean {
@@ -489,7 +465,7 @@ export class GuildPlaybackManager {
     this.isLooping = enabled;
     const status = this.isLooping ? 'enabled' : 'disabled';
     const songName = this.currentSong ? ` for **${this.currentSong.name}**` : '';
-    console.log(`[Guild ${this.guildId}] Looping set to ${this.isLooping}`);
+    logger.info(`Looping set to ${status}`, { guildId: this.guildId, scope: 'control', event: 'loop_set' });
     return `Looping ${status}${songName}.`;
   }
 
@@ -515,7 +491,7 @@ export class GuildPlaybackManager {
     const stepMs = durationMs / steps;
     const delta = (to - from) / steps;
     let current = from;
-    return new Promise((resolve) => {
+    await new Promise<void>((resolve) => {
       this.fadeInterval = setInterval(() => {
         current += delta;
         const reached = delta >= 0 ? current >= to : current <= to;
@@ -543,11 +519,14 @@ export class GuildPlaybackManager {
 
   public startSleepTimer(durationMs: number, fadeOutMs = 2000): string {
     if (this.sleepTimeout) {
-      clearTimeout(this.sleepTimeout);
+      this.timers.clear(this.sleepTimeout);
       this.sleepTimeout = null;
     }
-    this.sleepTimeout = setTimeout(() => {
-      this.fadeOutStop(fadeOutMs).catch(() => this.stop());
+    this.sleepTimeout = this.timers.setTimeout(() => {
+      this.fadeOutStop(fadeOutMs).catch((e) => {
+        logger.warn('Sleep timer fade failed, forcing stop', { guildId: this.guildId, scope: 'sleep', event: 'sleep_fade_fail' }, e);
+        this.stop();
+      });
       this.leave(true);
     }, durationMs);
     return `Sleep timer set for ${(durationMs / 60000).toFixed(1)} minutes.`;
@@ -555,10 +534,32 @@ export class GuildPlaybackManager {
 
   public cancelSleepTimer(): string {
     if (this.sleepTimeout) {
-      clearTimeout(this.sleepTimeout);
+      this.timers.clear(this.sleepTimeout);
       this.sleepTimeout = null;
       return 'Sleep timer cancelled.';
     }
     return 'No sleep timer was set.';
+  }
+
+  private startWatchdog(): void {
+    if (this.watchdog) return;
+    this.watchdog = setInterval(() => {
+      if (!this.connection) return;
+      const status = this.connection.state.status;
+      if (status === VoiceConnectionStatus.Destroyed) {
+        logger.warn('Watchdog detected destroyed connection, cleaning up', { guildId: this.guildId, scope: 'watchdog', event: 'destroyed_detected' });
+        this.cleanup(false);
+      }
+    }, 60_000);
+  }
+
+  private stateSafely(next: PlaybackState): void {
+    try {
+      if (this.state.getState() !== 'DESTROYED') {
+        this.state.transition(next);
+      }
+    } catch (e) {
+      logger.warn(`Invalid state transition`, { guildId: this.guildId, scope: 'state', event: 'invalid_transition' }, { from: this.state.getState(), to: next, error: (e as Error).message });
+    }
   }
 }

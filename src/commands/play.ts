@@ -8,6 +8,8 @@ import { type Command, isVoiceChannel, type Song } from '../types';
 import { findSong } from '../utils/findSong';
 import { getAllSongNames } from '../utils/findSong';
 import type { GuildPlaybackManager } from '../lib/GuildPlaybackManager';
+import { logger } from '../utils/logger';
+import type { LogContext } from '../utils/logger';
 
 export default {
   data: new SlashCommandBuilder()
@@ -25,6 +27,7 @@ export default {
     interaction: ChatInputCommandInteraction,
     manager: GuildPlaybackManager,
   ) {
+    const ctx: LogContext = { requestId: (interaction as any).requestId };
     // Defer immediately as joining/playing might take time
     await interaction.deferReply();
 
@@ -68,12 +71,14 @@ export default {
         content: `Joining ${voiceChannel.name} and searching for "${query}"...`,
       });
 
-      await manager.join(voiceChannel);
-      const playMessage = await manager.play(song);
+      await manager.join(voiceChannel, { requestId: ctx.requestId });
+      const playMessage = await manager.play(song, { requestId: ctx.requestId });
       await interaction.editReply({ content: playMessage }); // Final update
     } catch (error: any) {
-      console.error(
-        `[Command Play Error] Guild ${interaction.guildId}: ${error.message}`,
+      logger.error(
+        `[Command Play Error] ${error.message}`,
+        { guildId: interaction.guildId ?? undefined, command: 'play', scope: 'command', requestId: ctx.requestId },
+        error,
       );
       const replyContent = {
         content: `An error occurred: ${

@@ -7,6 +7,7 @@ import {
 import type { Command } from '../types';
 import type { GuildPlaybackManager } from '../lib/GuildPlaybackManager';
 import { findSong, getAllSongNames } from '../utils/findSong';
+import { logger, type LogContext } from '../utils/logger';
 
 export default {
   data: new SlashCommandBuilder()
@@ -46,6 +47,7 @@ export default {
     interaction: ChatInputCommandInteraction,
     manager: GuildPlaybackManager,
   ) {
+    const ctx: LogContext = { requestId: (interaction as any).requestId, command: 'sleep', guildId: interaction.guildId ?? undefined };
     const sub = interaction.options.getSubcommand();
 
     if (sub === 'cancel') {
@@ -74,14 +76,14 @@ export default {
 
     try {
       await interaction.editReply({ content: 'Setting up sleep timer…' });
-      await manager.join(voiceChannel);
+      await manager.join(voiceChannel, { requestId: ctx.requestId });
 
       if (query) {
         const song = findSong(query);
         if (!song) {
           return interaction.editReply({ content: `No matching song found for "${query}". Use /list.` });
         }
-        await manager.play(song);
+        await manager.play(song, { requestId: ctx.requestId });
       } else if (!manager.getCurrentSong()) {
         return interaction.editReply({ content: 'Nothing is playing. Provide a song name.' });
       }
@@ -90,6 +92,7 @@ export default {
       const msg = manager.startSleepTimer(minutes * 60000, fadeMs);
       await interaction.editReply({ content: `Sleep mode: looping for ${minutes} minute(s). ${msg}` });
     } catch (e: any) {
+      logger.error('Failed to start sleep command', ctx, e);
       await interaction.editReply({ content: `Failed to start sleep: ${e.message || e}` });
     }
   },

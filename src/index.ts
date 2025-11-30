@@ -10,6 +10,7 @@ import dotenv from 'dotenv';
 import { GuildPlaybackManager } from './lib/GuildPlaybackManager';
 import { loadCommands, registerCommands } from './handlers/commandHandler';
 import type { Command } from './types';
+import { logger } from './utils/logger';
 
 dotenv.config();
 
@@ -18,7 +19,7 @@ const BOT_TOKEN = process.env.BOT_TOKEN;
 const CLIENT_ID = process.env.CLIENT_ID;
 
 if (!BOT_TOKEN || !CLIENT_ID) {
-  console.error('FATAL ERROR: BOT_TOKEN or CLIENT_ID is missing in .env file.');
+  logger.error('FATAL ERROR: BOT_TOKEN or CLIENT_ID is missing in .env file.', { scope: 'boot' });
   process.exit(1);
 }
 // --- End Check ---
@@ -42,17 +43,18 @@ client.playbackManagers = new Map<string, GuildPlaybackManager>();
 
 // --- Register Commands ---
 client.once(Events.ClientReady, async (readyClient) => {
-  console.log(`Logged in as ${readyClient.user.tag}!`);
-  console.log(`Bot ID: ${readyClient.user.id}`);
+  logger.info(`Logged in as ${readyClient.user.tag}!`, { scope: 'boot' });
+  logger.info(`Bot ID: ${readyClient.user.id}`, { scope: 'boot' });
 
   if (CLIENT_ID !== readyClient.user.id) {
-    console.warn(
-      `WARNING: CLIENT_ID in .env (${CLIENT_ID}) does not match actual bot ID (${readyClient.user.id}). Commands might fail to register or work correctly.`,
+    logger.warn(
+      `CLIENT_ID in .env (${CLIENT_ID}) does not match actual bot ID (${readyClient.user.id}). Commands might fail to register or work correctly.`,
+      { scope: 'boot' },
     );
   }
 
   if (client.commands.size === 0) {
-    console.error('No commands were loaded. Skipping registration.');
+    logger.error('No commands were loaded. Skipping registration.', { scope: 'boot' });
     return;
   }
   await registerCommands(
@@ -66,8 +68,9 @@ client.once(Events.ClientReady, async (readyClient) => {
     if (!currentGuildIds.includes(guildId)) {
       client.playbackManagers.get(guildId)?.destroy();
       client.playbackManagers.delete(guildId);
-      console.log(
+      logger.info(
         `Cleaned up stale playback manager for guild ${guildId} (not found).`,
+        { guildId, scope: 'boot' },
       );
     }
   }
@@ -75,6 +78,8 @@ client.once(Events.ClientReady, async (readyClient) => {
 
 // --- Handle Interactions ---
 client.on(Events.InteractionCreate, async (interaction) => {
+  const requestId = (crypto.randomUUID && crypto.randomUUID()) || Math.random().toString(36).slice(2);
+  (interaction as any).requestId = requestId;
   // Handle Autocomplete Separately
   if (interaction.isAutocomplete()) {
     const command = client.commands.get(interaction.commandName);
@@ -82,8 +87,9 @@ client.on(Events.InteractionCreate, async (interaction) => {
     try {
       await command.autocomplete(interaction);
     } catch (error) {
-      console.error(
-        `Error handling autocomplete for ${interaction.commandName}:`,
+      logger.error(
+        `Error handling autocomplete for ${interaction.commandName}: ${(error as Error).message}`,
+        { command: interaction.commandName, guildId: interaction.guildId ?? undefined, scope: 'autocomplete' },
         error,
       );
     }
@@ -96,14 +102,15 @@ client.on(Events.InteractionCreate, async (interaction) => {
   const command = client.commands.get(interaction.commandName);
 
   if (!command) {
-    console.error(`No command matching ${interaction.commandName} was found.`);
+    logger.error(`No command matching ${interaction.commandName} was found.`, { command: interaction.commandName, guildId: interaction.guildId, scope: 'interaction' });
     try {
-      // --- Reverted to ephemeral: true ---
       await interaction.reply({
         content: 'Error: Command not found!',
         ephemeral: true,
       });
-    } catch {}
+    } catch (replyError) {
+      logger.error('Failed to reply for missing command', { command: interaction.commandName, guildId: interaction.guildId, scope: 'interaction' }, replyError);
+    }
     return;
   }
 
@@ -112,7 +119,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
   if (!manager) {
     const guildId = interaction.guildId;
     manager = new GuildPlaybackManager(guildId, (error) => {
-      console.error(`[FATAL MANAGER ERROR] Guild ${guildId}: ${error.message}`);
+      logger.error(`[FATAL MANAGER ERROR] ${error.message}`, { guildId, scope: 'manager' }, error);
       const deadManager = client.playbackManagers.get(guildId);
       if (deadManager) {
         deadManager.destroy();
@@ -122,12 +129,14 @@ client.on(Events.InteractionCreate, async (interaction) => {
     client.playbackManagers.set(interaction.guildId, manager);
   }
 
+  logger.info('Command received', { guildId: interaction.guildId ?? undefined, command: interaction.commandName, scope: 'interaction', requestId, event: 'command_start' });
   // --- Execute Command ---
   try {
     await command.execute(interaction, manager);
   } catch (error) {
-    console.error(
-      `Error executing command ${interaction.commandName} for guild ${interaction.guildId}:`,
+    logger.error(
+      `Error executing command ${interaction.commandName} for guild ${interaction.guildId}: ${(error as Error).message}`,
+      { command: interaction.commandName, guildId: interaction.guildId, scope: 'interaction' },
       error,
     );
     const content = 'There was an error while executing this command!';

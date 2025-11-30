@@ -6,6 +6,7 @@ import {
 import type { Command } from '../types';
 import type { GuildPlaybackManager } from '../lib/GuildPlaybackManager';
 import { getAllSongNames, findSong } from '../utils/findSong';
+import { logger, type LogContext } from '../utils/logger';
 
 export default {
   data: new SlashCommandBuilder()
@@ -21,6 +22,7 @@ export default {
     interaction: ChatInputCommandInteraction,
     manager: GuildPlaybackManager,
   ) {
+    const ctx: LogContext = { requestId: (interaction as any).requestId, command: 'random', guildId: interaction.guildId ?? undefined };
     await interaction.deferReply();
 
     if (!interaction.member || !('voice' in interaction.member)) {
@@ -45,8 +47,13 @@ export default {
     const song = findSong(pick);
     if (!song) return interaction.editReply({ content: 'Selected song disappeared after reload. Try again.' });
 
-    await manager.join(voiceChannel);
-    const msg = await manager.play(song);
-    await interaction.editReply({ content: msg + ' (random pick)' });
+    try {
+      await manager.join(voiceChannel, { requestId: ctx.requestId });
+      const msg = await manager.play(song, { requestId: ctx.requestId });
+      await interaction.editReply({ content: msg + ' (random pick)' });
+    } catch (error: any) {
+      logger.error('Random command failed', ctx, error);
+      await interaction.editReply({ content: `Failed to play: ${error.message || error}` });
+    }
   },
 } as Command;

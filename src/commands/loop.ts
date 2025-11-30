@@ -4,6 +4,8 @@ import {
 } from 'discord.js';
 import type { Command } from '../types';
 import type { GuildPlaybackManager } from '../lib/GuildPlaybackManager';
+import { logger } from '../utils/logger';
+import type { LogContext } from '../utils/logger';
 
 export default {
   data: new SlashCommandBuilder()
@@ -24,6 +26,7 @@ export default {
     interaction: ChatInputCommandInteraction,
     manager: GuildPlaybackManager,
   ) {
+    const ctx: LogContext = { requestId: (interaction as any).requestId };
     try {
       const mode = (interaction.options.get('mode')?.value as string) ?? 'toggle';
       let replyMessage = '';
@@ -32,13 +35,13 @@ export default {
       else replyMessage = manager.toggleLoop();
       await interaction.reply({ content: replyMessage });
     } catch (error: any) {
-      console.error(`[Command Loop Error] Guild ${interaction.guildId}: ${error.message}`);
+      logger.error(`[Command Loop Error] ${error.message}`, { guildId: interaction.guildId ?? undefined, command: 'loop', scope: 'command', requestId: ctx.requestId }, error);
       await interaction
         .reply({
           content: `An error occurred: ${error.message || 'Could not set loop.'}`,
           ephemeral: true,
         })
-        .catch(() => {});
+        .catch((e) => logger.error('Failed to reply in loop command', { guildId: interaction.guildId ?? undefined, command: 'loop', scope: 'command', requestId: ctx.requestId }, e));
     }
   },
 } as Command;

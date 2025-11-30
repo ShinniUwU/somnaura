@@ -1,707 +1,2030 @@
 diff --git a/README.md b/README.md
-index 29bfe78..226c13c 100644
+index 226c13c..fba5c09 100644
 --- a/README.md
 +++ b/README.md
-@@ -16,6 +16,22 @@ bun build
- bun start
- ```
+@@ -38,6 +38,7 @@ System requirements for crystal-clear audio:
  
-+Docker (optional):
-+
-+```bash
-+# Build image
-+docker build -t somnaura .
-+
-+# Run and mount your host songs folder (read-only)
-+docker run -d --name somnaura \
-+  -v "$(pwd)/songs:/app/songs:ro" \
-+  -e BOT_TOKEN=your_token \
-+  -e CLIENT_ID=your_client_id \
-+  somnaura
-+```
-+
-+The image includes FFmpeg and native build tooling. It copies any `songs/` you have at build time and also exposes `/app/songs` as a volume so you can hot-swap tracks by mounting your host folder without rebuilding.
-+
- Note: This project is tuned to run smoothly on Bun — no build step required. Ensure FFmpeg is installed on your system (with libopus) and use `/voice-report` to verify the environment. If you ever hear artifacts, double‑check FFmpeg availability and try raising `max_missed_frames` in `/quality set`.
+ - FFmpeg installed on the host/container with libopus enabled (common on Debian/Ubuntu). Check via `/voice-report`.
+ - Optional but strongly recommended: `@discordjs/opus` (bundled via prism-media) and `libsodium` for fast encryption. See below.
++- Building native modules requires `python3`, `make`, and a C++ toolchain. The Dockerfile installs these along with FFmpeg.
  
- System requirements for crystal-clear audio:
+ Runtime tuning (optional):
+ 
 diff --git a/changes.diff b/changes.diff
-index a06ea95..e69de29 100644
+index 35254dd..e69de29 100644
 --- a/changes.diff
 +++ b/changes.diff
-@@ -1,675 +0,0 @@
--diff --git a/bun.lockb b/bun.lockb
--index ca8bfe9..7ea4765 100755
--Binary files a/bun.lockb and b/bun.lockb differ
+@@ -1,707 +0,0 @@
+-diff --git a/README.md b/README.md
+-index 29bfe78..226c13c 100644
+---- a/README.md
+-+++ b/README.md
+-@@ -16,6 +16,22 @@ bun build
+- bun start
+- ```
+- 
+-+Docker (optional):
+-+
+-+```bash
+-+# Build image
+-+docker build -t somnaura .
+-+
+-+# Run and mount your host songs folder (read-only)
+-+docker run -d --name somnaura \
+-+  -v "$(pwd)/songs:/app/songs:ro" \
+-+  -e BOT_TOKEN=your_token \
+-+  -e CLIENT_ID=your_client_id \
+-+  somnaura
+-+```
+-+
+-+The image includes FFmpeg and native build tooling. It copies any `songs/` you have at build time and also exposes `/app/songs` as a volume so you can hot-swap tracks by mounting your host folder without rebuilding.
+-+
+- Note: This project is tuned to run smoothly on Bun — no build step required. Ensure FFmpeg is installed on your system (with libopus) and use `/voice-report` to verify the environment. If you ever hear artifacts, double‑check FFmpeg availability and try raising `max_missed_frames` in `/quality set`.
+- 
+- System requirements for crystal-clear audio:
 -diff --git a/changes.diff b/changes.diff
--index 7cd4e71..e69de29 100644
+-index a06ea95..e69de29 100644
 ---- a/changes.diff
 -+++ b/changes.diff
--@@ -1,409 +0,0 @@
---diff --git a/README.md b/README.md
---index eff1f9a..29bfe78 100644
------ a/README.md
---+++ b/README.md
---@@ -42,7 +42,6 @@ Runtime quality control (no SSH):
---
--- - Use `/quality show` to see the current encoder settings.
--- - Use `/quality set` to change `bitrate`, `fec`, `plp`, and `max_missed_frames` live. Settings persist to `config.json` and apply to the next track.
----- Use `/volume get` and `/volume set percent:NN` to adjust loudness live (0–200%).
--- - Use `/sleep start minutes:N [query:rain] [fadeout_ms:2000]` to loop a sound for N minutes and fade out automatically, or `/sleep cancel` to cancel.
--- - Use `/rain [minutes:N]` as a shortcut to loop your rain file (and optionally set a sleep timer).
--- - Use `/status` to see now playing, loop, and volume.
+-@@ -1,675 +0,0 @@
+--diff --git a/bun.lockb b/bun.lockb
+--index ca8bfe9..7ea4765 100755
+--Binary files a/bun.lockb and b/bun.lockb differ
 --diff --git a/changes.diff b/changes.diff
---new file mode 100644
---index 0000000..e69de29
---diff --git a/src/commands/status.ts b/src/commands/status.ts
---index 474fc32..6873a62 100644
------ a/src/commands/status.ts
---+++ b/src/commands/status.ts
---@@ -4,7 +4,6 @@ import {
--- } from 'discord.js';
--- import type { Command } from '../types';
--- import type { GuildPlaybackManager } from '../lib/GuildPlaybackManager';
----import { ConfigStore } from '../lib/ConfigStore';
---
--- export default {
---   data: new SlashCommandBuilder()
---@@ -16,8 +15,7 @@ export default {
---     manager: GuildPlaybackManager,
---   ) {
---     const loopState = manager.isLoopEnabled() ? 'on' : 'off';
----    const vol = (ConfigStore.get().volume * 100).toFixed(0) + '%';
----    const content = `${manager.getStatus()}\nLoop: ${loopState}\nVolume: ${vol}`;
---+    const content = `${manager.getStatus()}\nLoop: ${loopState}`;
---     await interaction.reply({ content });
---   },
--- } as Command;
---diff --git a/src/commands/volume.ts b/src/commands/volume.ts
---deleted file mode 100644
---index d3e7f4e..0000000
------ a/src/commands/volume.ts
---+++ /dev/null
---@@ -1,46 +0,0 @@
----import {
----  SlashCommandBuilder,
----  type ChatInputCommandInteraction,
----} from 'discord.js';
----import type { Command } from '../types';
----import type { GuildPlaybackManager } from '../lib/GuildPlaybackManager';
----import { ConfigStore } from '../lib/ConfigStore';
+--index 7cd4e71..e69de29 100644
+----- a/changes.diff
+--+++ b/changes.diff
+--@@ -1,409 +0,0 @@
+---diff --git a/README.md b/README.md
+---index eff1f9a..29bfe78 100644
+------ a/README.md
+---+++ b/README.md
+---@@ -42,7 +42,6 @@ Runtime quality control (no SSH):
 ---
----export default {
----  data: new SlashCommandBuilder()
----    .setName('volume')
----    .setDescription('Get or set playback volume')
----    .addSubcommand((s) => s.setName('get').setDescription('Show current volume'))
----    .addSubcommand((s) =>
----      s
----        .setName('set')
----        .setDescription('Set volume (0–200%)')
----        .addIntegerOption((o) =>
----          o
----            .setName('percent')
----            .setDescription('0–200')
----            .setRequired(true)
----            .setMinValue(0)
----            .setMaxValue(200),
----        ),
----    ),
+--- - Use `/quality show` to see the current encoder settings.
+--- - Use `/quality set` to change `bitrate`, `fec`, `plp`, and `max_missed_frames` live. Settings persist to `config.json` and apply to the next track.
+----- Use `/volume get` and `/volume set percent:NN` to adjust loudness live (0–200%).
+--- - Use `/sleep start minutes:N [query:rain] [fadeout_ms:2000]` to loop a sound for N minutes and fade out automatically, or `/sleep cancel` to cancel.
+--- - Use `/rain [minutes:N]` as a shortcut to loop your rain file (and optionally set a sleep timer).
+--- - Use `/status` to see now playing, loop, and volume.
+---diff --git a/changes.diff b/changes.diff
+---new file mode 100644
+---index 0000000..e69de29
+---diff --git a/src/commands/status.ts b/src/commands/status.ts
+---index 474fc32..6873a62 100644
+------ a/src/commands/status.ts
+---+++ b/src/commands/status.ts
+---@@ -4,7 +4,6 @@ import {
+--- } from 'discord.js';
+--- import type { Command } from '../types';
+--- import type { GuildPlaybackManager } from '../lib/GuildPlaybackManager';
+----import { ConfigStore } from '../lib/ConfigStore';
 ---
----  async execute(
----    interaction: ChatInputCommandInteraction,
----    manager: GuildPlaybackManager,
----  ) {
----    // Ack early to avoid interaction timeouts and race conditions
----    await interaction.deferReply({ ephemeral: true });
+--- export default {
+---   data: new SlashCommandBuilder()
+---@@ -16,8 +15,7 @@ export default {
+---     manager: GuildPlaybackManager,
+---   ) {
+---     const loopState = manager.isLoopEnabled() ? 'on' : 'off';
+----    const vol = (ConfigStore.get().volume * 100).toFixed(0) + '%';
+----    const content = `${manager.getStatus()}\nLoop: ${loopState}\nVolume: ${vol}`;
+---+    const content = `${manager.getStatus()}\nLoop: ${loopState}`;
+---     await interaction.reply({ content });
+---   },
+--- } as Command;
+---diff --git a/src/commands/volume.ts b/src/commands/volume.ts
+---deleted file mode 100644
+---index d3e7f4e..0000000
+------ a/src/commands/volume.ts
+---+++ /dev/null
+---@@ -1,46 +0,0 @@
+----import {
+----  SlashCommandBuilder,
+----  type ChatInputCommandInteraction,
+----} from 'discord.js';
+----import type { Command } from '../types';
+----import type { GuildPlaybackManager } from '../lib/GuildPlaybackManager';
+----import { ConfigStore } from '../lib/ConfigStore';
+----
+----export default {
+----  data: new SlashCommandBuilder()
+----    .setName('volume')
+----    .setDescription('Get or set playback volume')
+----    .addSubcommand((s) => s.setName('get').setDescription('Show current volume'))
+----    .addSubcommand((s) =>
+----      s
+----        .setName('set')
+----        .setDescription('Set volume (0–200%)')
+----        .addIntegerOption((o) =>
+----          o
+----            .setName('percent')
+----            .setDescription('0–200')
+----            .setRequired(true)
+----            .setMinValue(0)
+----            .setMaxValue(200),
+----        ),
+----    ),
+----
+----  async execute(
+----    interaction: ChatInputCommandInteraction,
+----    manager: GuildPlaybackManager,
+----  ) {
+----    // Ack early to avoid interaction timeouts and race conditions
+----    await interaction.deferReply({ ephemeral: true });
+----
+----    const sub = interaction.options.getSubcommand();
+----    if (sub === 'get') {
+----      const v = ConfigStore.get().volume;
+----      await interaction.editReply({ content: `Volume: ${(v * 100).toFixed(0)}%` });
+----      return;
+----    }
+----    const percent = interaction.options.get('percent', true).value as number;
+----    const vol = Math.max(0, Math.min(200, percent)) / 100;
+----    const msg = manager.setVolume(vol);
+----    await interaction.editReply({ content: msg });
+----  },
+----} as Command;
+---diff --git a/src/lib/ConfigStore.ts b/src/lib/ConfigStore.ts
+---index 6618a80..0883179 100644
+------ a/src/lib/ConfigStore.ts
+---+++ b/src/lib/ConfigStore.ts
+---@@ -6,7 +6,6 @@ export type VoiceConfig = {
+---   opusFec: boolean;
+---   opusPlp: number; // 0..1
+---   maxMissedFrames: number; // audio frames (20ms)
+----  volume: number; // 0.0 .. 2.0 (1.0 = 100%)
+---   inactivityMinutes: number; // minutes, 0 disables auto-disconnect
+---   preferOpusDemux: boolean; // try demux fast-path for pre-encoded opus
+---   microFadeMs: number; // fade-in at start to avoid ticks
+---@@ -21,7 +20,6 @@ const DEFAULTS: VoiceConfig = {
+---   opusPlp: 0.1,
+---   // Allow brief jitter without dropouts; reduces crackle on busy hosts
+---   maxMissedFrames: 50,
+----  volume: 1.0,
+---   inactivityMinutes: 5,
+---   preferOpusDemux: true,
+---   microFadeMs: 12,
+---@@ -48,7 +46,6 @@ function load(): void {
+---         opusPlp: clamp(Number(parsed.opusPlp) || DEFAULTS.opusPlp, 0, 1),
+---         maxMissedFrames:
+---           Number(parsed.maxMissedFrames) || DEFAULTS.maxMissedFrames,
+----        volume: clamp(Number(parsed.volume) || DEFAULTS.volume, 0, 2),
+---         inactivityMinutes:
+---           Math.max(0, Number(parsed.inactivityMinutes) || DEFAULTS.inactivityMinutes),
+---         preferOpusDemux: typeof parsed.preferOpusDemux === 'boolean' ? parsed.preferOpusDemux : DEFAULTS.preferOpusDemux,
+---@@ -83,7 +80,6 @@ export const ConfigStore = {
+---       opusFec: Boolean(newConfig.opusFec),
+---       opusPlp: clamp(newConfig.opusPlp, 0, 1),
+---       maxMissedFrames: Math.max(1, Math.round(newConfig.maxMissedFrames)),
+----      volume: clamp(newConfig.volume, 0, 2),
+---       inactivityMinutes: Math.max(0, Math.round(newConfig.inactivityMinutes)),
+---       preferOpusDemux: Boolean(newConfig.preferOpusDemux),
+---       microFadeMs: Math.max(0, Math.round(newConfig.microFadeMs)),
+---diff --git a/src/lib/GuildPlaybackManager.ts b/src/lib/GuildPlaybackManager.ts
+---index ab40c03..dd1d7cf 100644
+------ a/src/lib/GuildPlaybackManager.ts
+---+++ b/src/lib/GuildPlaybackManager.ts
+---@@ -1,6 +1,4 @@
+--- import fs from 'fs'; // <-- Added missing import
+----import prism from 'prism-media';
+----import type { Readable } from 'node:stream';
+--- import {
+---   AudioPlayer,
+---   AudioPlayerStatus,
+---@@ -12,13 +10,10 @@ import {
+---   NoSubscriberBehavior,
+---   VoiceConnection,
+---   VoiceConnectionStatus,
+----  StreamType,
+----  demuxProbe,
+--- } from '@discordjs/voice';
+--- import type { BaseGuildVoiceChannel } from 'discord.js'; // Use type import
+--- import type { Song } from '../types'; // Use type import
+--- import { ConfigStore } from './ConfigStore';
+----import path from 'path';
 ---
----    const sub = interaction.options.getSubcommand();
----    if (sub === 'get') {
----      const v = ConfigStore.get().volume;
----      await interaction.editReply({ content: `Volume: ${(v * 100).toFixed(0)}%` });
----      return;
----    }
----    const percent = interaction.options.get('percent', true).value as number;
----    const vol = Math.max(0, Math.min(200, percent)) / 100;
----    const msg = manager.setVolume(vol);
----    await interaction.editReply({ content: msg });
----  },
----} as Command;
+--- type VoiceErrorCallback = (error: Error) => void;
+---
+---@@ -31,9 +26,7 @@ export class GuildPlaybackManager {
+---   private currentSong: Song | null = null;
+---   private isLooping: boolean = false;
+---   private onErrorCallback: VoiceErrorCallback;
+----  // Keep references to custom streaming pipeline so we can clean them up
+----  private ffmpegStream: prism.FFmpeg | null = null;
+----  private volumeStream: prism.VolumeTransformer | null = null;
+---+  // No custom pipeline retained
+---   // Use ReturnType<...> for better type safety with setTimeout
+---   private inactivityTimeout: ReturnType<typeof setTimeout> | null = null; // <-- Changed type
+---   private static readonly DEFAULT_INACTIVITY_TIMEOUT_MS = 300_000; // 5 minutes
+---@@ -41,8 +34,7 @@ export class GuildPlaybackManager {
+---   private aloneTimer: ReturnType<typeof setTimeout> | null = null;
+---   private queue: Song[] = [];
+---
+----  // Fade control
+----  private volumeFadeTimer: ReturnType<typeof setInterval> | null = null;
+---+  // No fade timers
+---
+---   constructor(guildId: string, onError: VoiceErrorCallback) {
+---     this.guildId = guildId;
+---@@ -51,57 +43,7 @@ export class GuildPlaybackManager {
+---     console.log(`[Guild ${guildId}] Playback Manager created.`);
+---   }
+---
+----  // Build a high-quality, stable FFmpeg -> PCM pipeline with our own volume control.
+----  // Using explicit resampling avoids drift and artifacts on long sessions.
+----  private buildTunedResource(filePath: string, song: Song): AudioResource {
+----    // Ensure any previous custom pipeline is torn down
+----    this.destroyPipeline();
+----
+----    const args = [
+----      '-analyzeduration', '0',
+----      '-loglevel', 'error',
+----      '-vn',
+----      '-i', filePath,
+----      // High-quality resample to Discord-friendly PCM
+----      '-ac', '2',
+----      '-ar', '48000',
+----      // Use soxr resampler for better quality and stability
+----      '-af', 'aresample=resampler=soxr:precision=28:osf=s16:ocl=stereo',
+----      '-f', 's16le',
+----      '-acodec', 'pcm_s16le',
+----    ];
+----
+----    const ffmpeg = new prism.FFmpeg({ args });
+----    this.ffmpegStream = ffmpeg;
+----
+----    const volLevel = Math.max(0, Math.min(2, ConfigStore.get().volume));
+----    const volume = new prism.VolumeTransformer({ type: 's16le', volume: volLevel });
+----    this.volumeStream = volume;
+----
+----    ffmpeg.on('error', () => {
+----      // Errors are handled by player error handlers; keep this quiet to avoid spam
+----    });
+----
+----    // Chain: FFmpeg PCM -> Volume -> Voice encoder
+----    ffmpeg.pipe(volume);
+----
+----    // Use Raw PCM input type, let @discordjs/voice handle Opus encoding downstream
+----    const resource = createAudioResource(volume as unknown as Readable, {
+----      inputType: StreamType.Raw,
+----      inlineVolume: false, // we control volume with the transformer above
+----      metadata: song,
+----    });
+----
+----    // Apply encoder tuning if available (resource.encoder is present for Raw streams)
+----    if (resource.encoder) {
+----      const { opusBitrate, opusFec, opusPlp } = ConfigStore.get();
+----      try { resource.encoder.setBitrate(opusBitrate); } catch {}
+----      try { resource.encoder.setFEC(Boolean(opusFec)); } catch {}
+----      try { resource.encoder.setPLP(Math.max(0, Math.min(1, opusPlp))); } catch {}
+----    }
+----
+----    return resource;
+----  }
+---+  // No custom pipeline; rely on library resource builder for stability
+---
+---   private createPlayer(): AudioPlayer {
+---     const { maxMissedFrames } = ConfigStore.get();
+---@@ -162,15 +104,7 @@ export class GuildPlaybackManager {
+---     return player;
+---   }
+---
+----  // Set live output volume on whichever volume transformer is active
+----  private setOutputVolumeImmediate(v: number): void {
+----    const vol = Math.max(0, Math.min(2, v));
+----    if (this.resource?.volume) {
+----      try { this.resource.volume.setVolume(vol); } catch {}
+----    } else if (this.volumeStream) {
+----      try { this.volumeStream.setVolume(vol); } catch {}
+----    }
+----  }
+---+  // Volume removed
+---
+---   private scheduleInactivityDisconnect(): void {
+---     this.clearInactivityDisconnect();
+---@@ -192,20 +126,7 @@ export class GuildPlaybackManager {
+---     }
+---   }
+---
+----  private destroyPipeline(): void {
+----    try {
+----      if (this.volumeStream) {
+----        try { this.volumeStream.unpipe(); } catch {}
+----        try { this.volumeStream.destroy(); } catch {}
+----        this.volumeStream = null;
+----      }
+----      if (this.ffmpegStream) {
+----        try { this.ffmpegStream.unpipe(); } catch {}
+----        try { this.ffmpegStream.destroy(); } catch {}
+----        this.ffmpegStream = null;
+----      }
+----    } catch {}
+----  }
+---+  private destroyPipeline(): void { /* no-op */ }
+---
+---   public async join(channel: BaseGuildVoiceChannel): Promise<void> {
+---     if (
+---@@ -317,47 +238,27 @@ export class GuildPlaybackManager {
+---     console.log(`[Guild ${this.guildId}] Playing ${songToPlay.name}`);
+---     this.clearInactivityDisconnect();
+---     try {
+----      const cfg = ConfigStore.get();
+----      const ext = path.extname(songToPlay.path).toLowerCase();
+----      const demuxCapable = ext === '.ogg' || ext === '.opus' || ext === '.webm';
+----      const canDemux = cfg.preferOpusDemux && demuxCapable && cfg.volume === 1 && !this.sleepTimeout && !this.isLooping;
+----
+----      let resource: AudioResource;
+----      if (canDemux) {
+----        try {
+----          const stream = fs.createReadStream(songToPlay.path);
+----          const probe = await demuxProbe(stream as unknown as Readable);
+----          resource = createAudioResource(probe.stream as unknown as Readable, {
+----            inputType: probe.type,
+----            inlineVolume: false,
+----            metadata: songToPlay,
+----          });
+----        } catch (e) {
+----          console.warn(`[Guild ${this.guildId}] demuxProbe failed, falling back to PCM:`, e);
+----          resource = this.buildTunedResource(songToPlay.path, songToPlay);
+----        }
+----      } else {
+----        // Build and play tuned FFmpeg -> PCM pipeline for maximum smoothness
+----        resource = this.buildTunedResource(songToPlay.path, songToPlay);
+---+      // Build resource using library defaults for compatibility and stability
+---+      const resource: AudioResource = createAudioResource(songToPlay.path, {
+---+        metadata: songToPlay,
+---+        inlineVolume: false,
+---+      });
+---+      // Apply encoder tuning when available
+---+      if (resource.encoder) {
+---+        const { opusBitrate, opusFec, opusPlp } = ConfigStore.get();
+---+        try { resource.encoder.setBitrate(opusBitrate); } catch {}
+---+        try { resource.encoder.setFEC(Boolean(opusFec)); } catch {}
+---+        try { resource.encoder.setPLP(Math.max(0, Math.min(1, opusPlp))); } catch {}
+---       }
+----
+----      // Ensure initial volume is applied on our transformer
+----      this.setOutputVolumeImmediate(cfg.volume);
+---       this.player.play(resource);
+---       this.resource = resource;
+---       this.currentSong = songToPlay;
+----
+----      // Micro fade-in to prevent edge ticks (only when we control volume)
+----      if ((this.resource as any)?.volume || this.volumeStream) {
+----        const ms = Math.max(0, cfg.microFadeMs || 0);
+----        if (ms > 0) this.startFade(0.0001, cfg.volume, ms);
+----      }
+---       return `Now playing: **${songToPlay.name}**`;
+---     } catch (playError) {
+---       console.error(`[Guild ${this.guildId}] Tuned pipeline failed, falling back:`, playError);
+---       // Fallback to library defaults if our tuned pipeline errors
+---       try {
+----        const resource = createAudioResource(songToPlay.path, { metadata: songToPlay, inlineVolume: true });
+---+        const resource = createAudioResource(songToPlay.path, { metadata: songToPlay, inlineVolume: false });
+---         // If prism chose an internal Opus encoder, apply options when possible
+---         // Note: When FFmpeg(libopus) path is selected internally, encoder may be undefined
+---         if (resource.encoder) {
+---@@ -366,10 +267,6 @@ export class GuildPlaybackManager {
+---           try { resource.encoder.setFEC(Boolean(opusFec)); } catch {}
+---           try { resource.encoder.setPLP(opusPlp); } catch {}
+---         }
+----        if (resource.volume) {
+----          const { volume } = ConfigStore.get();
+----          try { resource.volume.setVolume(volume); } catch {}
+----        }
+---         this.player.play(resource);
+---         this.resource = resource;
+---         this.currentSong = songToPlay;
+---@@ -564,9 +461,6 @@ export class GuildPlaybackManager {
+---       // @ts-ignore accessing behaviors directly
+---       this.player.behaviors.maxMissedFrames = maxMissedFrames;
+---     } catch {}
+----    // Also adjust live volume if playing
+----    const { volume } = ConfigStore.get();
+----    this.setOutputVolumeImmediate(volume);
+---   }
+---
+---   public isLoopEnabled(): boolean {
+---@@ -581,55 +475,11 @@ export class GuildPlaybackManager {
+---     return `Looping ${status}${songName}.`;
+---   }
+---
+----  public setVolume(vol: number): string {
+----    const clamped = Math.max(0, Math.min(2, vol));
+----    ConfigStore.update({ volume: clamped });
+----    this.setOutputVolumeImmediate(clamped);
+----    return `Volume set to ${(clamped * 100).toFixed(0)}%`;
+----  }
+---+  public setVolume(_vol: number): string { return 'Volume control disabled.'; }
+---
+----  private startFade(from: number, to: number, durationMs: number): void {
+----    // Choose the correct volume control interface (inlineVolume or PCM transformer)
+----    const volumeCtl: { setVolume: (v: number) => void } | null =
+----      (this.resource && this.resource.volume) ? this.resource.volume : (this.volumeStream ? this.volumeStream : null);
+----    if (!volumeCtl) return;
+----    if (this.volumeFadeTimer) {
+----      clearInterval(this.volumeFadeTimer);
+----      this.volumeFadeTimer = null;
+----    }
+----    const steps = Math.max(1, Math.floor(durationMs / 50));
+----    let i = 0;
+----    try { volumeCtl.setVolume(from); } catch {}
+----    this.volumeFadeTimer = setInterval(() => {
+----      i++;
+----      const v = from + (to - from) * (i / steps);
+----      try { volumeCtl.setVolume(v); } catch {}
+----      if (i >= steps) {
+----        if (this.volumeFadeTimer) clearInterval(this.volumeFadeTimer);
+----        this.volumeFadeTimer = null;
+----      }
+----    }, 50);
+----  }
+---+  private startFade(_from: number, _to: number, _durationMs: number): void { /* no-op */ }
+---
+----  public async fadeOutStop(durationMs = 1500): Promise<void> {
+----    const hasCtl = Boolean((this.resource as any)?.volume || this.volumeStream);
+----    if (!hasCtl) {
+----      this.stop();
+----      return;
+----    }
+----    try {
+----      const current = ConfigStore.get().volume;
+----      this.startFade(current, 0.0001, durationMs);
+----      await new Promise((r) => setTimeout(r, durationMs + 50));
+----    } finally {
+----      this.stop();
+----      // restore default volume for next play
+----      const v = ConfigStore.get().volume;
+----      if (this.resource?.volume) {
+----        try { this.resource.volume.setVolume(v); } catch {}
+----      }
+----    }
+----  }
+---+  public async fadeOutStop(_durationMs = 0): Promise<void> { this.stop(); }
+---
+---   public startSleepTimer(durationMs: number, fadeOutMs = 2000): string {
+---     if (this.sleepTimeout) {
+--diff --git a/src/index.ts b/src/index.ts
+--index f1e7449..371b468 100644
+----- a/src/index.ts
+--+++ b/src/index.ts
+--@@ -130,17 +130,18 @@ client.on(Events.InteractionCreate, async (interaction) => {
+--       `Error executing command ${interaction.commandName} for guild ${interaction.guildId}:`,
+--       error,
+--     );
+--+    const content = 'There was an error while executing this command!';
+--     try {
+---      // --- Reverted to ephemeral: true ---
+---      const replyOptions = {
+---        content: 'There was an error while executing this command!',
+---        ephemeral: true,
+---      };
+---      if (interaction.replied || interaction.deferred) {
+---        // Edit reply content only
+---        await interaction.editReply({ content: replyOptions.content });
+--+      if (interaction.replied) {
+--+        await interaction.followUp({ content, ephemeral: true });
+--+      } else if (interaction.deferred) {
+--+        await interaction.editReply({ content });
+--+        // Send a private follow-up so errors are not leaked publicly
+--+        await interaction.followUp({ content, ephemeral: true }).catch(() => {});
+--+        // Try to remove the public placeholder if it exists
+--+        await interaction.deleteReply().catch(() => {});
+--       } else {
+---        await interaction.reply(replyOptions);
+--+        await interaction.reply({ content, ephemeral: true });
+--       }
+--     } catch (replyError) {
+--       console.error(
 --diff --git a/src/lib/ConfigStore.ts b/src/lib/ConfigStore.ts
---index 6618a80..0883179 100644
+--index 0883179..d38550e 100644
 ----- a/src/lib/ConfigStore.ts
 --+++ b/src/lib/ConfigStore.ts
---@@ -6,7 +6,6 @@ export type VoiceConfig = {
---   opusFec: boolean;
---   opusPlp: number; // 0..1
---   maxMissedFrames: number; // audio frames (20ms)
----  volume: number; // 0.0 .. 2.0 (1.0 = 100%)
---   inactivityMinutes: number; // minutes, 0 disables auto-disconnect
---   preferOpusDemux: boolean; // try demux fast-path for pre-encoded opus
---   microFadeMs: number; // fade-in at start to avoid ticks
---@@ -21,7 +20,6 @@ const DEFAULTS: VoiceConfig = {
---   opusPlp: 0.1,
---   // Allow brief jitter without dropouts; reduces crackle on busy hosts
---   maxMissedFrames: 50,
----  volume: 1.0,
---   inactivityMinutes: 5,
---   preferOpusDemux: true,
---   microFadeMs: 12,
---@@ -48,7 +46,6 @@ function load(): void {
---         opusPlp: clamp(Number(parsed.opusPlp) || DEFAULTS.opusPlp, 0, 1),
---         maxMissedFrames:
---           Number(parsed.maxMissedFrames) || DEFAULTS.maxMissedFrames,
----        volume: clamp(Number(parsed.volume) || DEFAULTS.volume, 0, 2),
---         inactivityMinutes:
---           Math.max(0, Number(parsed.inactivityMinutes) || DEFAULTS.inactivityMinutes),
---         preferOpusDemux: typeof parsed.preferOpusDemux === 'boolean' ? parsed.preferOpusDemux : DEFAULTS.preferOpusDemux,
---@@ -83,7 +80,6 @@ export const ConfigStore = {
---       opusFec: Boolean(newConfig.opusFec),
---       opusPlp: clamp(newConfig.opusPlp, 0, 1),
---       maxMissedFrames: Math.max(1, Math.round(newConfig.maxMissedFrames)),
----      volume: clamp(newConfig.volume, 0, 2),
---       inactivityMinutes: Math.max(0, Math.round(newConfig.inactivityMinutes)),
---       preferOpusDemux: Boolean(newConfig.preferOpusDemux),
---       microFadeMs: Math.max(0, Math.round(newConfig.microFadeMs)),
+--@@ -35,23 +35,52 @@ function clamp(num: number, min: number, max: number): number {
+--   return Math.max(min, Math.min(max, num));
+-- }
+--
+--+function isFiniteNumber(value: unknown): value is number {
+--+  return typeof value === 'number' && Number.isFinite(value);
+--+}
+--+
+-- function load(): void {
+--   try {
+--     if (fs.existsSync(CONFIG_PATH)) {
+--       const raw = fs.readFileSync(CONFIG_PATH, 'utf8');
+--       const parsed = JSON.parse(raw);
+--+      const parsedBitrate = Number(parsed.opusBitrate);
+--+      const parsedPlp = Number(parsed.opusPlp);
+--+      const parsedMaxMissed = Number(parsed.maxMissedFrames);
+--+      const parsedInactivity = Number(parsed.inactivityMinutes);
+--+      const parsedMicroFade = Number(parsed.microFadeMs);
+--+      const parsedAloneGrace = Number(parsed.aloneGraceSeconds);
+--       cache = {
+---        opusBitrate: Number(parsed.opusBitrate) || DEFAULTS.opusBitrate,
+---        opusFec: Boolean(parsed.opusFec),
+---        opusPlp: clamp(Number(parsed.opusPlp) || DEFAULTS.opusPlp, 0, 1),
+---        maxMissedFrames:
+---          Number(parsed.maxMissedFrames) || DEFAULTS.maxMissedFrames,
+---        inactivityMinutes:
+---          Math.max(0, Number(parsed.inactivityMinutes) || DEFAULTS.inactivityMinutes),
+---        preferOpusDemux: typeof parsed.preferOpusDemux === 'boolean' ? parsed.preferOpusDemux : DEFAULTS.preferOpusDemux,
+---        microFadeMs: Math.max(0, Number(parsed.microFadeMs) || DEFAULTS.microFadeMs),
+---        autoLeaveAlone: typeof parsed.autoLeaveAlone === 'boolean' ? parsed.autoLeaveAlone : DEFAULTS.autoLeaveAlone,
+---        aloneGraceSeconds: Math.max(5, Number(parsed.aloneGraceSeconds) || DEFAULTS.aloneGraceSeconds),
+--+        opusBitrate: isFiniteNumber(parsedBitrate)
+--+          ? parsedBitrate
+--+          : DEFAULTS.opusBitrate,
+--+        opusFec:
+--+          typeof parsed.opusFec === 'boolean'
+--+            ? parsed.opusFec
+--+            : DEFAULTS.opusFec,
+--+        opusPlp: isFiniteNumber(parsedPlp)
+--+          ? clamp(parsedPlp, 0, 1)
+--+          : DEFAULTS.opusPlp,
+--+        maxMissedFrames: isFiniteNumber(parsedMaxMissed)
+--+          ? parsedMaxMissed
+--+          : DEFAULTS.maxMissedFrames,
+--+        inactivityMinutes: isFiniteNumber(parsedInactivity)
+--+          ? Math.max(0, parsedInactivity)
+--+          : DEFAULTS.inactivityMinutes,
+--+        preferOpusDemux:
+--+          typeof parsed.preferOpusDemux === 'boolean'
+--+            ? parsed.preferOpusDemux
+--+            : DEFAULTS.preferOpusDemux,
+--+        microFadeMs: isFiniteNumber(parsedMicroFade)
+--+          ? Math.max(0, parsedMicroFade)
+--+          : DEFAULTS.microFadeMs,
+--+        autoLeaveAlone:
+--+          typeof parsed.autoLeaveAlone === 'boolean'
+--+            ? parsed.autoLeaveAlone
+--+            : DEFAULTS.autoLeaveAlone,
+--+        aloneGraceSeconds: isFiniteNumber(parsedAloneGrace)
+--+          ? Math.max(5, parsedAloneGrace)
+--+          : DEFAULTS.aloneGraceSeconds,
+--       };
+--     }
+--   } catch (e) {
 --diff --git a/src/lib/GuildPlaybackManager.ts b/src/lib/GuildPlaybackManager.ts
---index ab40c03..dd1d7cf 100644
+--index dd1d7cf..aad92f3 100644
 ----- a/src/lib/GuildPlaybackManager.ts
 --+++ b/src/lib/GuildPlaybackManager.ts
---@@ -1,6 +1,4 @@
--- import fs from 'fs'; // <-- Added missing import
----import prism from 'prism-media';
----import type { Readable } from 'node:stream';
--- import {
---   AudioPlayer,
---   AudioPlayerStatus,
---@@ -12,13 +10,10 @@ import {
---   NoSubscriberBehavior,
---   VoiceConnection,
---   VoiceConnectionStatus,
----  StreamType,
----  demuxProbe,
--- } from '@discordjs/voice';
--- import type { BaseGuildVoiceChannel } from 'discord.js'; // Use type import
--- import type { Song } from '../types'; // Use type import
--- import { ConfigStore } from './ConfigStore';
----import path from 'path';
---
--- type VoiceErrorCallback = (error: Error) => void;
---
---@@ -31,9 +26,7 @@ export class GuildPlaybackManager {
---   private currentSong: Song | null = null;
---   private isLooping: boolean = false;
---   private onErrorCallback: VoiceErrorCallback;
----  // Keep references to custom streaming pipeline so we can clean them up
----  private ffmpegStream: prism.FFmpeg | null = null;
----  private volumeStream: prism.VolumeTransformer | null = null;
---+  // No custom pipeline retained
---   // Use ReturnType<...> for better type safety with setTimeout
---   private inactivityTimeout: ReturnType<typeof setTimeout> | null = null; // <-- Changed type
+--@@ -32,6 +32,7 @@ export class GuildPlaybackManager {
 --   private static readonly DEFAULT_INACTIVITY_TIMEOUT_MS = 300_000; // 5 minutes
---@@ -41,8 +34,7 @@ export class GuildPlaybackManager {
+--   private sleepTimeout: ReturnType<typeof setTimeout> | null = null;
 --   private aloneTimer: ReturnType<typeof setTimeout> | null = null;
+--+  private fadeInterval: ReturnType<typeof setInterval> | null = null;
 --   private queue: Song[] = [];
 --
----  // Fade control
----  private volumeFadeTimer: ReturnType<typeof setInterval> | null = null;
---+  // No fade timers
---
---   constructor(guildId: string, onError: VoiceErrorCallback) {
---     this.guildId = guildId;
---@@ -51,57 +43,7 @@ export class GuildPlaybackManager {
---     console.log(`[Guild ${guildId}] Playback Manager created.`);
---   }
---
----  // Build a high-quality, stable FFmpeg -> PCM pipeline with our own volume control.
----  // Using explicit resampling avoids drift and artifacts on long sessions.
----  private buildTunedResource(filePath: string, song: Song): AudioResource {
----    // Ensure any previous custom pipeline is torn down
----    this.destroyPipeline();
----
----    const args = [
----      '-analyzeduration', '0',
----      '-loglevel', 'error',
----      '-vn',
----      '-i', filePath,
----      // High-quality resample to Discord-friendly PCM
----      '-ac', '2',
----      '-ar', '48000',
----      // Use soxr resampler for better quality and stability
----      '-af', 'aresample=resampler=soxr:precision=28:osf=s16:ocl=stereo',
----      '-f', 's16le',
----      '-acodec', 'pcm_s16le',
----    ];
----
----    const ffmpeg = new prism.FFmpeg({ args });
----    this.ffmpegStream = ffmpeg;
----
----    const volLevel = Math.max(0, Math.min(2, ConfigStore.get().volume));
----    const volume = new prism.VolumeTransformer({ type: 's16le', volume: volLevel });
----    this.volumeStream = volume;
----
----    ffmpeg.on('error', () => {
----      // Errors are handled by player error handlers; keep this quiet to avoid spam
----    });
----
----    // Chain: FFmpeg PCM -> Volume -> Voice encoder
----    ffmpeg.pipe(volume);
----
----    // Use Raw PCM input type, let @discordjs/voice handle Opus encoding downstream
----    const resource = createAudioResource(volume as unknown as Readable, {
----      inputType: StreamType.Raw,
----      inlineVolume: false, // we control volume with the transformer above
----      metadata: song,
----    });
----
----    // Apply encoder tuning if available (resource.encoder is present for Raw streams)
----    if (resource.encoder) {
----      const { opusBitrate, opusFec, opusPlp } = ConfigStore.get();
----      try { resource.encoder.setBitrate(opusBitrate); } catch {}
----      try { resource.encoder.setFEC(Boolean(opusFec)); } catch {}
----      try { resource.encoder.setPLP(Math.max(0, Math.min(1, opusPlp))); } catch {}
----    }
----
----    return resource;
----  }
---+  // No custom pipeline; rely on library resource builder for stability
---
---   private createPlayer(): AudioPlayer {
---     const { maxMissedFrames } = ConfigStore.get();
---@@ -162,15 +104,7 @@ export class GuildPlaybackManager {
---     return player;
---   }
---
----  // Set live output volume on whichever volume transformer is active
----  private setOutputVolumeImmediate(v: number): void {
----    const vol = Math.max(0, Math.min(2, v));
----    if (this.resource?.volume) {
----      try { this.resource.volume.setVolume(vol); } catch {}
----    } else if (this.volumeStream) {
----      try { this.volumeStream.setVolume(vol); } catch {}
----    }
----  }
---+  // Volume removed
---
---   private scheduleInactivityDisconnect(): void {
---     this.clearInactivityDisconnect();
---@@ -192,20 +126,7 @@ export class GuildPlaybackManager {
---     }
---   }
---
----  private destroyPipeline(): void {
----    try {
----      if (this.volumeStream) {
----        try { this.volumeStream.unpipe(); } catch {}
----        try { this.volumeStream.destroy(); } catch {}
----        this.volumeStream = null;
----      }
----      if (this.ffmpegStream) {
----        try { this.ffmpegStream.unpipe(); } catch {}
----        try { this.ffmpegStream.destroy(); } catch {}
----        this.ffmpegStream = null;
----      }
----    } catch {}
----  }
---+  private destroyPipeline(): void { /* no-op */ }
---
---   public async join(channel: BaseGuildVoiceChannel): Promise<void> {
---     if (
---@@ -317,47 +238,27 @@ export class GuildPlaybackManager {
---     console.log(`[Guild ${this.guildId}] Playing ${songToPlay.name}`);
---     this.clearInactivityDisconnect();
---     try {
----      const cfg = ConfigStore.get();
----      const ext = path.extname(songToPlay.path).toLowerCase();
----      const demuxCapable = ext === '.ogg' || ext === '.opus' || ext === '.webm';
----      const canDemux = cfg.preferOpusDemux && demuxCapable && cfg.volume === 1 && !this.sleepTimeout && !this.isLooping;
----
----      let resource: AudioResource;
----      if (canDemux) {
----        try {
----          const stream = fs.createReadStream(songToPlay.path);
----          const probe = await demuxProbe(stream as unknown as Readable);
----          resource = createAudioResource(probe.stream as unknown as Readable, {
----            inputType: probe.type,
----            inlineVolume: false,
----            metadata: songToPlay,
----          });
----        } catch (e) {
----          console.warn(`[Guild ${this.guildId}] demuxProbe failed, falling back to PCM:`, e);
----          resource = this.buildTunedResource(songToPlay.path, songToPlay);
----        }
----      } else {
----        // Build and play tuned FFmpeg -> PCM pipeline for maximum smoothness
----        resource = this.buildTunedResource(songToPlay.path, songToPlay);
---+      // Build resource using library defaults for compatibility and stability
---+      const resource: AudioResource = createAudioResource(songToPlay.path, {
---+        metadata: songToPlay,
---+        inlineVolume: false,
---+      });
---+      // Apply encoder tuning when available
---+      if (resource.encoder) {
---+        const { opusBitrate, opusFec, opusPlp } = ConfigStore.get();
---+        try { resource.encoder.setBitrate(opusBitrate); } catch {}
---+        try { resource.encoder.setFEC(Boolean(opusFec)); } catch {}
---+        try { resource.encoder.setPLP(Math.max(0, Math.min(1, opusPlp))); } catch {}
+--   // No fade timers
+--@@ -241,7 +242,7 @@ export class GuildPlaybackManager {
+--       // Build resource using library defaults for compatibility and stability
+--       const resource: AudioResource = createAudioResource(songToPlay.path, {
+--         metadata: songToPlay,
+---        inlineVolume: false,
+--+        inlineVolume: true,
+--       });
+--       // Apply encoder tuning when available
+--       if (resource.encoder) {
+--@@ -250,15 +251,23 @@ export class GuildPlaybackManager {
+--         try { resource.encoder.setFEC(Boolean(opusFec)); } catch {}
+--         try { resource.encoder.setPLP(Math.max(0, Math.min(1, opusPlp))); } catch {}
 --       }
----
----      // Ensure initial volume is applied on our transformer
----      this.setOutputVolumeImmediate(cfg.volume);
+--+      // Gentle fade-in to avoid pops at start
+--+      const { microFadeMs } = ConfigStore.get();
+--+      if (resource.volume) {
+--+        resource.volume.setVolume(Math.max(0, microFadeMs > 0 ? 0 : 1));
+--+      }
 --       this.player.play(resource);
 --       this.resource = resource;
 --       this.currentSong = songToPlay;
----
----      // Micro fade-in to prevent edge ticks (only when we control volume)
----      if ((this.resource as any)?.volume || this.volumeStream) {
----        const ms = Math.max(0, cfg.microFadeMs || 0);
----        if (ms > 0) this.startFade(0.0001, cfg.volume, ms);
----      }
+--+      if (resource.volume && microFadeMs > 0) {
+--+        this.startFade(0, 1, microFadeMs).catch(() => {});
+--+      }
 --       return `Now playing: **${songToPlay.name}**`;
 --     } catch (playError) {
 --       console.error(`[Guild ${this.guildId}] Tuned pipeline failed, falling back:`, playError);
 --       // Fallback to library defaults if our tuned pipeline errors
 --       try {
----        const resource = createAudioResource(songToPlay.path, { metadata: songToPlay, inlineVolume: true });
---+        const resource = createAudioResource(songToPlay.path, { metadata: songToPlay, inlineVolume: false });
+---        const resource = createAudioResource(songToPlay.path, { metadata: songToPlay, inlineVolume: false });
+--+        const resource = createAudioResource(songToPlay.path, { metadata: songToPlay, inlineVolume: true });
 --         // If prism chose an internal Opus encoder, apply options when possible
 --         // Note: When FFmpeg(libopus) path is selected internally, encoder may be undefined
 --         if (resource.encoder) {
---@@ -366,10 +267,6 @@ export class GuildPlaybackManager {
+--@@ -267,9 +276,16 @@ export class GuildPlaybackManager {
 --           try { resource.encoder.setFEC(Boolean(opusFec)); } catch {}
 --           try { resource.encoder.setPLP(opusPlp); } catch {}
 --         }
----        if (resource.volume) {
----          const { volume } = ConfigStore.get();
----          try { resource.volume.setVolume(volume); } catch {}
----        }
+--+        const { microFadeMs } = ConfigStore.get();
+--+        if (resource.volume) {
+--+          resource.volume.setVolume(Math.max(0, microFadeMs > 0 ? 0 : 1));
+--+        }
 --         this.player.play(resource);
 --         this.resource = resource;
 --         this.currentSong = songToPlay;
---@@ -564,9 +461,6 @@ export class GuildPlaybackManager {
---       // @ts-ignore accessing behaviors directly
---       this.player.behaviors.maxMissedFrames = maxMissedFrames;
---     } catch {}
----    // Also adjust live volume if playing
----    const { volume } = ConfigStore.get();
----    this.setOutputVolumeImmediate(volume);
---   }
+--+        if (resource.volume && microFadeMs > 0) {
+--+          this.startFade(0, 1, microFadeMs).catch(() => {});
+--+        }
+--         return `Now playing: **${songToPlay.name}**`;
+--       } catch (fallbackError) {
+--         console.error(
+--@@ -288,6 +304,7 @@ export class GuildPlaybackManager {
+--   public stop(): void {
+--     if (this.player.state.status !== AudioPlayerStatus.Idle) {
+--       console.log(`[Guild ${this.guildId}] Stopping playback.`);
+--+      this.clearFade();
+--       this.player.stop(true);
+--       this.resource = null;
+--       this.currentSong = null; // Clear current song when stopped
+--@@ -424,6 +441,7 @@ export class GuildPlaybackManager {
+--     console.log(
+--       `[Guild ${this.guildId}] Cleaning up resources (destroyConnection: ${destroyConnection})...`,
+--     );
+--+    this.clearFade();
+--     this.clearInactivityDisconnect();
+--     if (this.player) {
+--       this.player.stop(true);
+--@@ -477,9 +495,51 @@ export class GuildPlaybackManager {
 --
---   public isLoopEnabled(): boolean {
---@@ -581,55 +475,11 @@ export class GuildPlaybackManager {
---     return `Looping ${status}${songName}.`;
---   }
+--   public setVolume(_vol: number): string { return 'Volume control disabled.'; }
 --
----  public setVolume(vol: number): string {
----    const clamped = Math.max(0, Math.min(2, vol));
----    ConfigStore.update({ volume: clamped });
----    this.setOutputVolumeImmediate(clamped);
----    return `Volume set to ${(clamped * 100).toFixed(0)}%`;
----  }
---+  public setVolume(_vol: number): string { return 'Volume control disabled.'; }
+---  private startFade(_from: number, _to: number, _durationMs: number): void { /* no-op */ }
+--+  private clearFade(): void {
+--+    if (this.fadeInterval) {
+--+      clearInterval(this.fadeInterval);
+--+      this.fadeInterval = null;
+--+    }
+--+  }
+--+
+--+  private async startFade(from: number, to: number, durationMs: number): Promise<void> {
+--+    if (!this.resource || !this.resource.volume) return;
+--+    this.clearFade();
+--+    const vol = this.resource.volume;
+--+    if (durationMs <= 0) {
+--+      vol.setVolume(Math.max(0, to));
+--+      return;
+--+    }
+--+    vol.setVolume(Math.max(0, from));
+--+    const steps = Math.max(1, Math.round(durationMs / 50));
+--+    const stepMs = durationMs / steps;
+--+    const delta = (to - from) / steps;
+--+    let current = from;
+--+    return new Promise((resolve) => {
+--+      this.fadeInterval = setInterval(() => {
+--+        current += delta;
+--+        const reached = delta >= 0 ? current >= to : current <= to;
+--+        if (reached) {
+--+          vol.setVolume(Math.max(0, to));
+--+          this.clearFade();
+--+          resolve();
+--+          return;
+--+        }
+--+        vol.setVolume(Math.max(0, current));
+--+      }, stepMs);
+--+    });
+--+  }
 --
----  private startFade(from: number, to: number, durationMs: number): void {
----    // Choose the correct volume control interface (inlineVolume or PCM transformer)
----    const volumeCtl: { setVolume: (v: number) => void } | null =
----      (this.resource && this.resource.volume) ? this.resource.volume : (this.volumeStream ? this.volumeStream : null);
----    if (!volumeCtl) return;
----    if (this.volumeFadeTimer) {
----      clearInterval(this.volumeFadeTimer);
----      this.volumeFadeTimer = null;
----    }
----    const steps = Math.max(1, Math.floor(durationMs / 50));
----    let i = 0;
----    try { volumeCtl.setVolume(from); } catch {}
----    this.volumeFadeTimer = setInterval(() => {
----      i++;
----      const v = from + (to - from) * (i / steps);
----      try { volumeCtl.setVolume(v); } catch {}
----      if (i >= steps) {
----        if (this.volumeFadeTimer) clearInterval(this.volumeFadeTimer);
----        this.volumeFadeTimer = null;
----      }
----    }, 50);
----  }
---+  private startFade(_from: number, _to: number, _durationMs: number): void { /* no-op */ }
---
----  public async fadeOutStop(durationMs = 1500): Promise<void> {
----    const hasCtl = Boolean((this.resource as any)?.volume || this.volumeStream);
----    if (!hasCtl) {
----      this.stop();
----      return;
----    }
----    try {
----      const current = ConfigStore.get().volume;
----      this.startFade(current, 0.0001, durationMs);
----      await new Promise((r) => setTimeout(r, durationMs + 50));
----    } finally {
----      this.stop();
----      // restore default volume for next play
----      const v = ConfigStore.get().volume;
----      if (this.resource?.volume) {
----        try { this.resource.volume.setVolume(v); } catch {}
----      }
----    }
----  }
---+  public async fadeOutStop(_durationMs = 0): Promise<void> { this.stop(); }
+---  public async fadeOutStop(_durationMs = 0): Promise<void> { this.stop(); }
+--+  public async fadeOutStop(durationMs = 0): Promise<void> {
+--+    if (this.resource?.volume) {
+--+      const currentVol =
+--+        typeof (this.resource.volume as any).volume === 'number'
+--+          ? (this.resource.volume as any).volume
+--+          : 1;
+--+      await this.startFade(currentVol, 0, durationMs);
+--+    }
+--+    this.stop();
+--+  }
 --
 --   public startSleepTimer(durationMs: number, fadeOutMs = 2000): string {
 --     if (this.sleepTimeout) {
--diff --git a/src/index.ts b/src/index.ts
--index f1e7449..371b468 100644
----- a/src/index.ts
--+++ b/src/index.ts
--@@ -130,17 +130,18 @@ client.on(Events.InteractionCreate, async (interaction) => {
--       `Error executing command ${interaction.commandName} for guild ${interaction.guildId}:`,
--       error,
--     );
--+    const content = 'There was an error while executing this command!';
--     try {
---      // --- Reverted to ephemeral: true ---
---      const replyOptions = {
---        content: 'There was an error while executing this command!',
---        ephemeral: true,
---      };
---      if (interaction.replied || interaction.deferred) {
---        // Edit reply content only
---        await interaction.editReply({ content: replyOptions.content });
--+      if (interaction.replied) {
--+        await interaction.followUp({ content, ephemeral: true });
--+      } else if (interaction.deferred) {
--+        await interaction.editReply({ content });
--+        // Send a private follow-up so errors are not leaked publicly
--+        await interaction.followUp({ content, ephemeral: true }).catch(() => {});
--+        // Try to remove the public placeholder if it exists
--+        await interaction.deleteReply().catch(() => {});
--       } else {
---        await interaction.reply(replyOptions);
--+        await interaction.reply({ content, ephemeral: true });
--       }
--     } catch (replyError) {
--       console.error(
--diff --git a/src/lib/ConfigStore.ts b/src/lib/ConfigStore.ts
--index 0883179..d38550e 100644
----- a/src/lib/ConfigStore.ts
--+++ b/src/lib/ConfigStore.ts
--@@ -35,23 +35,52 @@ function clamp(num: number, min: number, max: number): number {
--   return Math.max(min, Math.min(max, num));
-- }
+--diff --git a/src/utils/findSong.ts b/src/utils/findSong.ts
+--index fc14531..0277326 100644
+----- a/src/utils/findSong.ts
+--+++ b/src/utils/findSong.ts
+--@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
+-- import Fuse from 'fuse.js';
+-- import type { Song } from '../types';
+--
+---const AUDIO_RE = /\.(mp3|ogg|wav|flac|m4a|aac)$/i;
+--+const AUDIO_RE = /\.(mp3|ogg|wav|flac|m4a|aac|opus)$/i;
+--
+-- function candidateDirs(): string[] {
+--   // Prefer root 'songs/' but also support legacy 'src/songs/'
+--diff --git a/tsconfig.json b/tsconfig.json
+--index c314a05..b1168b1 100644
+----- a/tsconfig.json
+--+++ b/tsconfig.json
+--@@ -23,6 +23,6 @@
+--     "noUnusedLocals": false,
+--     "noUnusedParameters": false,
+--     "noPropertyAccessFromIndexSignature": false,
+---    "types": ["bun-types"]
+--+    "types": ["bun"]
+--   }
+-- }
+diff --git a/package.json b/package.json
+index e710746..6e295d2 100644
+--- a/package.json
++++ b/package.json
+@@ -5,10 +5,11 @@
+   "scripts": {
+     "dev": "bun run src/index.ts",
+     "build": "bun x tsc -p tsconfig.json",
+-    "start": "bun run src/index.ts"
++    "start": "bun run src/index.ts",
++    "test": "bun test"
+   },
+   "devDependencies": {
+-    "@types/bun": "latest",
++    "@types/bun": "1.1.10",
+     "typescript": "^5.5.4"
+   },
+   "peerDependencies": {
+diff --git a/src/commands/leave.ts b/src/commands/leave.ts
+index 82a3809..f9032fc 100644
+--- a/src/commands/leave.ts
++++ b/src/commands/leave.ts
+@@ -4,6 +4,8 @@ import {
+ } from 'discord.js';
+ import type { Command } from '../types';
+ import type { GuildPlaybackManager } from '../lib/GuildPlaybackManager';
++import { logger } from '../utils/logger';
++import type { LogContext } from '../utils/logger';
+ 
+ export default {
+   data: new SlashCommandBuilder()
+@@ -16,15 +18,13 @@ export default {
+     interaction: ChatInputCommandInteraction,
+     manager: GuildPlaybackManager,
+   ) {
++    const ctx: LogContext = { requestId: (interaction as any).requestId };
+     try {
+-      manager.leave();
++      manager.leave(false, { requestId: ctx.requestId });
+       // Use reply
+       await interaction.reply({ content: 'Left the voice channel.' });
+     } catch (error: any) {
+-      console.error(
+-        `[Command Leave Error] Guild ${interaction.guildId}: ${error.message}`,
+-      );
+-      // Use reply
++      logger.error(`[Command Leave Error] ${error.message}`, { guildId: interaction.guildId ?? undefined, command: 'leave', scope: 'command', requestId: ctx.requestId }, error);
+       await interaction
+         .reply({
+           content: `An error occurred: ${
+@@ -32,7 +32,7 @@ export default {
+           }`,
+           ephemeral: true,
+         })
+-        .catch(() => {});
++        .catch((e) => logger.error('Failed to reply in leave command', { guildId: interaction.guildId ?? undefined, command: 'leave', scope: 'command', requestId: ctx.requestId }, e));
+     }
+   },
+ } as Command;
+diff --git a/src/commands/loop.ts b/src/commands/loop.ts
+index f9c4298..7c2999c 100644
+--- a/src/commands/loop.ts
++++ b/src/commands/loop.ts
+@@ -4,6 +4,8 @@ import {
+ } from 'discord.js';
+ import type { Command } from '../types';
+ import type { GuildPlaybackManager } from '../lib/GuildPlaybackManager';
++import { logger } from '../utils/logger';
++import type { LogContext } from '../utils/logger';
+ 
+ export default {
+   data: new SlashCommandBuilder()
+@@ -24,6 +26,7 @@ export default {
+     interaction: ChatInputCommandInteraction,
+     manager: GuildPlaybackManager,
+   ) {
++    const ctx: LogContext = { requestId: (interaction as any).requestId };
+     try {
+       const mode = (interaction.options.get('mode')?.value as string) ?? 'toggle';
+       let replyMessage = '';
+@@ -32,13 +35,13 @@ export default {
+       else replyMessage = manager.toggleLoop();
+       await interaction.reply({ content: replyMessage });
+     } catch (error: any) {
+-      console.error(`[Command Loop Error] Guild ${interaction.guildId}: ${error.message}`);
++      logger.error(`[Command Loop Error] ${error.message}`, { guildId: interaction.guildId ?? undefined, command: 'loop', scope: 'command', requestId: ctx.requestId }, error);
+       await interaction
+         .reply({
+           content: `An error occurred: ${error.message || 'Could not set loop.'}`,
+           ephemeral: true,
+         })
+-        .catch(() => {});
++        .catch((e) => logger.error('Failed to reply in loop command', { guildId: interaction.guildId ?? undefined, command: 'loop', scope: 'command', requestId: ctx.requestId }, e));
+     }
+   },
+ } as Command;
+diff --git a/src/commands/pause.ts b/src/commands/pause.ts
+index 94de8ed..c75a3fc 100644
+--- a/src/commands/pause.ts
++++ b/src/commands/pause.ts
+@@ -4,6 +4,7 @@ import {
+ } from 'discord.js';
+ import type { Command } from '../types';
+ import type { GuildPlaybackManager } from '../lib/GuildPlaybackManager';
++import type { LogContext } from '../utils/logger';
+ 
+ export default {
+   data: new SlashCommandBuilder()
+@@ -14,7 +15,8 @@ export default {
+     interaction: ChatInputCommandInteraction,
+     manager: GuildPlaybackManager,
+   ) {
+-    const ok = manager.pause();
++    const ctx: LogContext = { requestId: (interaction as any).requestId };
++    const ok = manager.pause({ requestId: ctx.requestId });
+     await interaction.reply({ content: ok ? 'Paused.' : 'Nothing to pause.' });
+   },
+ } as Command;
+diff --git a/src/commands/play.ts b/src/commands/play.ts
+index 81d043d..4fbe311 100644
+--- a/src/commands/play.ts
++++ b/src/commands/play.ts
+@@ -8,6 +8,8 @@ import { type Command, isVoiceChannel, type Song } from '../types';
+ import { findSong } from '../utils/findSong';
+ import { getAllSongNames } from '../utils/findSong';
+ import type { GuildPlaybackManager } from '../lib/GuildPlaybackManager';
++import { logger } from '../utils/logger';
++import type { LogContext } from '../utils/logger';
+ 
+ export default {
+   data: new SlashCommandBuilder()
+@@ -25,6 +27,7 @@ export default {
+     interaction: ChatInputCommandInteraction,
+     manager: GuildPlaybackManager,
+   ) {
++    const ctx: LogContext = { requestId: (interaction as any).requestId };
+     // Defer immediately as joining/playing might take time
+     await interaction.deferReply();
+ 
+@@ -68,12 +71,14 @@ export default {
+         content: `Joining ${voiceChannel.name} and searching for "${query}"...`,
+       });
+ 
+-      await manager.join(voiceChannel);
+-      const playMessage = await manager.play(song);
++      await manager.join(voiceChannel, { requestId: ctx.requestId });
++      const playMessage = await manager.play(song, { requestId: ctx.requestId });
+       await interaction.editReply({ content: playMessage }); // Final update
+     } catch (error: any) {
+-      console.error(
+-        `[Command Play Error] Guild ${interaction.guildId}: ${error.message}`,
++      logger.error(
++        `[Command Play Error] ${error.message}`,
++        { guildId: interaction.guildId ?? undefined, command: 'play', scope: 'command', requestId: ctx.requestId },
++        error,
+       );
+       const replyContent = {
+         content: `An error occurred: ${
+diff --git a/src/commands/rain.ts b/src/commands/rain.ts
+index c7537e6..fa36204 100644
+--- a/src/commands/rain.ts
++++ b/src/commands/rain.ts
+@@ -6,6 +6,7 @@ import {
+ import type { Command } from '../types';
+ import type { GuildPlaybackManager } from '../lib/GuildPlaybackManager';
+ import { findSong } from '../utils/findSong';
++import { logger, type LogContext } from '../utils/logger';
+ 
+ export default {
+   data: new SlashCommandBuilder()
+@@ -23,6 +24,7 @@ export default {
+     interaction: ChatInputCommandInteraction,
+     manager: GuildPlaybackManager,
+   ) {
++    const ctx: LogContext = { requestId: (interaction as any).requestId, command: 'rain', guildId: interaction.guildId ?? undefined };
+     await interaction.deferReply();
+ 
+     if (!interaction.member || !('voice' in interaction.member)) {
+@@ -40,15 +42,20 @@ export default {
+     const song = findSong('rain');
+     if (!song) return interaction.editReply({ content: 'No file matching "rain" found. Use /list.' });
+ 
+-    await manager.join(voiceChannel);
+-    manager.setLoop(true);
+-    const msg = await manager.play(song);
+-    const mins = (interaction.options.get('minutes')?.value as number | undefined);
+-    if (mins && mins > 0) {
+-      const t = manager.startSleepTimer(mins * 60000, 2000);
+-      await interaction.editReply({ content: `${msg} (looping)\n${t}` });
+-    } else {
+-      await interaction.editReply({ content: `${msg} (looping)` });
++    try {
++      await manager.join(voiceChannel, { requestId: ctx.requestId });
++      manager.setLoop(true);
++      const msg = await manager.play(song, { requestId: ctx.requestId });
++      const mins = (interaction.options.get('minutes')?.value as number | undefined);
++      if (mins && mins > 0) {
++        const t = manager.startSleepTimer(mins * 60000, 2000);
++        await interaction.editReply({ content: `${msg} (looping)\n${t}` });
++      } else {
++        await interaction.editReply({ content: `${msg} (looping)` });
++      }
++    } catch (error: any) {
++      logger.error('Rain command failed', ctx, error);
++      await interaction.editReply({ content: `Failed to play rain: ${error.message || error}` });
+     }
+   },
+ } as Command;
+diff --git a/src/commands/random.ts b/src/commands/random.ts
+index 31416f4..b53ae8f 100644
+--- a/src/commands/random.ts
++++ b/src/commands/random.ts
+@@ -6,6 +6,7 @@ import {
+ import type { Command } from '../types';
+ import type { GuildPlaybackManager } from '../lib/GuildPlaybackManager';
+ import { getAllSongNames, findSong } from '../utils/findSong';
++import { logger, type LogContext } from '../utils/logger';
+ 
+ export default {
+   data: new SlashCommandBuilder()
+@@ -21,6 +22,7 @@ export default {
+     interaction: ChatInputCommandInteraction,
+     manager: GuildPlaybackManager,
+   ) {
++    const ctx: LogContext = { requestId: (interaction as any).requestId, command: 'random', guildId: interaction.guildId ?? undefined };
+     await interaction.deferReply();
+ 
+     if (!interaction.member || !('voice' in interaction.member)) {
+@@ -45,8 +47,13 @@ export default {
+     const song = findSong(pick);
+     if (!song) return interaction.editReply({ content: 'Selected song disappeared after reload. Try again.' });
+ 
+-    await manager.join(voiceChannel);
+-    const msg = await manager.play(song);
+-    await interaction.editReply({ content: msg + ' (random pick)' });
++    try {
++      await manager.join(voiceChannel, { requestId: ctx.requestId });
++      const msg = await manager.play(song, { requestId: ctx.requestId });
++      await interaction.editReply({ content: msg + ' (random pick)' });
++    } catch (error: any) {
++      logger.error('Random command failed', ctx, error);
++      await interaction.editReply({ content: `Failed to play: ${error.message || error}` });
++    }
+   },
+ } as Command;
+diff --git a/src/commands/resume.ts b/src/commands/resume.ts
+index 53ce4a0..6330ac1 100644
+--- a/src/commands/resume.ts
++++ b/src/commands/resume.ts
+@@ -4,6 +4,7 @@ import {
+ } from 'discord.js';
+ import type { Command } from '../types';
+ import type { GuildPlaybackManager } from '../lib/GuildPlaybackManager';
++import type { LogContext } from '../utils/logger';
+ 
+ export default {
+   data: new SlashCommandBuilder()
+@@ -14,7 +15,8 @@ export default {
+     interaction: ChatInputCommandInteraction,
+     manager: GuildPlaybackManager,
+   ) {
+-    const ok = manager.resume();
++    const ctx: LogContext = { requestId: (interaction as any).requestId };
++    const ok = manager.resume({ requestId: ctx.requestId });
+     await interaction.reply({ content: ok ? 'Resumed.' : 'Nothing to resume.' });
+   },
+ } as Command;
+diff --git a/src/commands/skip.ts b/src/commands/skip.ts
+index 2c52c09..9e8e9a2 100644
+--- a/src/commands/skip.ts
++++ b/src/commands/skip.ts
+@@ -1,6 +1,7 @@
+ import { SlashCommandBuilder, type ChatInputCommandInteraction } from 'discord.js';
+ import type { Command } from '../types';
+ import type { GuildPlaybackManager } from '../lib/GuildPlaybackManager';
++import type { LogContext } from '../utils/logger';
+ 
+ export default {
+   data: new SlashCommandBuilder()
+@@ -8,8 +9,8 @@ export default {
+     .setDescription('Skip current song and play the next in queue (soft fade)'),
+ 
+   async execute(interaction: ChatInputCommandInteraction, manager: GuildPlaybackManager) {
+-    const msg = await manager.skip(250).catch(() => 'Skipped.');
++    const ctx: LogContext = { requestId: (interaction as any).requestId };
++    const msg = await manager.skip(250, { requestId: ctx.requestId }).catch(() => 'Skipped.');
+     await interaction.reply({ content: msg });
+   },
+ } as Command;
 -
--+function isFiniteNumber(value: unknown): value is number {
--+  return typeof value === 'number' && Number.isFinite(value);
--+}
--+
-- function load(): void {
--   try {
--     if (fs.existsSync(CONFIG_PATH)) {
--       const raw = fs.readFileSync(CONFIG_PATH, 'utf8');
--       const parsed = JSON.parse(raw);
--+      const parsedBitrate = Number(parsed.opusBitrate);
--+      const parsedPlp = Number(parsed.opusPlp);
--+      const parsedMaxMissed = Number(parsed.maxMissedFrames);
--+      const parsedInactivity = Number(parsed.inactivityMinutes);
--+      const parsedMicroFade = Number(parsed.microFadeMs);
--+      const parsedAloneGrace = Number(parsed.aloneGraceSeconds);
--       cache = {
---        opusBitrate: Number(parsed.opusBitrate) || DEFAULTS.opusBitrate,
---        opusFec: Boolean(parsed.opusFec),
---        opusPlp: clamp(Number(parsed.opusPlp) || DEFAULTS.opusPlp, 0, 1),
---        maxMissedFrames:
---          Number(parsed.maxMissedFrames) || DEFAULTS.maxMissedFrames,
---        inactivityMinutes:
---          Math.max(0, Number(parsed.inactivityMinutes) || DEFAULTS.inactivityMinutes),
---        preferOpusDemux: typeof parsed.preferOpusDemux === 'boolean' ? parsed.preferOpusDemux : DEFAULTS.preferOpusDemux,
---        microFadeMs: Math.max(0, Number(parsed.microFadeMs) || DEFAULTS.microFadeMs),
---        autoLeaveAlone: typeof parsed.autoLeaveAlone === 'boolean' ? parsed.autoLeaveAlone : DEFAULTS.autoLeaveAlone,
---        aloneGraceSeconds: Math.max(5, Number(parsed.aloneGraceSeconds) || DEFAULTS.aloneGraceSeconds),
--+        opusBitrate: isFiniteNumber(parsedBitrate)
--+          ? parsedBitrate
--+          : DEFAULTS.opusBitrate,
--+        opusFec:
--+          typeof parsed.opusFec === 'boolean'
--+            ? parsed.opusFec
--+            : DEFAULTS.opusFec,
--+        opusPlp: isFiniteNumber(parsedPlp)
--+          ? clamp(parsedPlp, 0, 1)
--+          : DEFAULTS.opusPlp,
--+        maxMissedFrames: isFiniteNumber(parsedMaxMissed)
--+          ? parsedMaxMissed
--+          : DEFAULTS.maxMissedFrames,
--+        inactivityMinutes: isFiniteNumber(parsedInactivity)
--+          ? Math.max(0, parsedInactivity)
--+          : DEFAULTS.inactivityMinutes,
--+        preferOpusDemux:
--+          typeof parsed.preferOpusDemux === 'boolean'
--+            ? parsed.preferOpusDemux
--+            : DEFAULTS.preferOpusDemux,
--+        microFadeMs: isFiniteNumber(parsedMicroFade)
--+          ? Math.max(0, parsedMicroFade)
--+          : DEFAULTS.microFadeMs,
--+        autoLeaveAlone:
--+          typeof parsed.autoLeaveAlone === 'boolean'
--+            ? parsed.autoLeaveAlone
--+            : DEFAULTS.autoLeaveAlone,
--+        aloneGraceSeconds: isFiniteNumber(parsedAloneGrace)
--+          ? Math.max(5, parsedAloneGrace)
--+          : DEFAULTS.aloneGraceSeconds,
--       };
--     }
--   } catch (e) {
--diff --git a/src/lib/GuildPlaybackManager.ts b/src/lib/GuildPlaybackManager.ts
--index dd1d7cf..aad92f3 100644
----- a/src/lib/GuildPlaybackManager.ts
--+++ b/src/lib/GuildPlaybackManager.ts
--@@ -32,6 +32,7 @@ export class GuildPlaybackManager {
--   private static readonly DEFAULT_INACTIVITY_TIMEOUT_MS = 300_000; // 5 minutes
--   private sleepTimeout: ReturnType<typeof setTimeout> | null = null;
--   private aloneTimer: ReturnType<typeof setTimeout> | null = null;
--+  private fadeInterval: ReturnType<typeof setInterval> | null = null;
--   private queue: Song[] = [];
+diff --git a/src/commands/sleep.ts b/src/commands/sleep.ts
+index 77cf6cd..0a17c82 100644
+--- a/src/commands/sleep.ts
++++ b/src/commands/sleep.ts
+@@ -7,6 +7,7 @@ import {
+ import type { Command } from '../types';
+ import type { GuildPlaybackManager } from '../lib/GuildPlaybackManager';
+ import { findSong, getAllSongNames } from '../utils/findSong';
++import { logger, type LogContext } from '../utils/logger';
+ 
+ export default {
+   data: new SlashCommandBuilder()
+@@ -46,6 +47,7 @@ export default {
+     interaction: ChatInputCommandInteraction,
+     manager: GuildPlaybackManager,
+   ) {
++    const ctx: LogContext = { requestId: (interaction as any).requestId, command: 'sleep', guildId: interaction.guildId ?? undefined };
+     const sub = interaction.options.getSubcommand();
+ 
+     if (sub === 'cancel') {
+@@ -74,14 +76,14 @@ export default {
+ 
+     try {
+       await interaction.editReply({ content: 'Setting up sleep timer…' });
+-      await manager.join(voiceChannel);
++      await manager.join(voiceChannel, { requestId: ctx.requestId });
+ 
+       if (query) {
+         const song = findSong(query);
+         if (!song) {
+           return interaction.editReply({ content: `No matching song found for "${query}". Use /list.` });
+         }
+-        await manager.play(song);
++        await manager.play(song, { requestId: ctx.requestId });
+       } else if (!manager.getCurrentSong()) {
+         return interaction.editReply({ content: 'Nothing is playing. Provide a song name.' });
+       }
+@@ -90,6 +92,7 @@ export default {
+       const msg = manager.startSleepTimer(minutes * 60000, fadeMs);
+       await interaction.editReply({ content: `Sleep mode: looping for ${minutes} minute(s). ${msg}` });
+     } catch (e: any) {
++      logger.error('Failed to start sleep command', ctx, e);
+       await interaction.editReply({ content: `Failed to start sleep: ${e.message || e}` });
+     }
+   },
+diff --git a/src/commands/stop.ts b/src/commands/stop.ts
+index db0a600..42b7bb6 100644
+--- a/src/commands/stop.ts
++++ b/src/commands/stop.ts
+@@ -4,6 +4,8 @@ import {
+ } from 'discord.js';
+ import type { Command } from '../types';
+ import type { GuildPlaybackManager } from '../lib/GuildPlaybackManager';
++import { logger } from '../utils/logger';
++import type { LogContext } from '../utils/logger';
+ 
+ export default {
+   data: new SlashCommandBuilder()
+@@ -14,15 +16,13 @@ export default {
+     interaction: ChatInputCommandInteraction,
+     manager: GuildPlaybackManager,
+   ) {
++    const ctx: LogContext = { requestId: (interaction as any).requestId };
+     try {
+-      manager.stop();
++      manager.stop({ requestId: ctx.requestId });
+       // Use reply
+       await interaction.reply({ content: 'Playback stopped.' });
+     } catch (error: any) {
+-      console.error(
+-        `[Command Stop Error] Guild ${interaction.guildId}: ${error.message}`,
+-      );
+-      // Use reply
++      logger.error(`[Command Stop Error] ${error.message}`, { guildId: interaction.guildId ?? undefined, command: 'stop', scope: 'command', requestId: ctx.requestId }, error);
+       await interaction
+         .reply({
+           content: `An error occurred: ${
+@@ -30,7 +30,7 @@ export default {
+           }`,
+           ephemeral: true,
+         })
+-        .catch(() => {});
++        .catch((e) => logger.error('Failed to reply in stop command', { guildId: interaction.guildId ?? undefined, command: 'stop', scope: 'command', requestId: ctx.requestId }, e));
+     }
+   },
+ } as Command;
+diff --git a/src/index.ts b/src/index.ts
+index 371b468..21a03fe 100644
+--- a/src/index.ts
++++ b/src/index.ts
+@@ -10,6 +10,7 @@ import dotenv from 'dotenv';
+ import { GuildPlaybackManager } from './lib/GuildPlaybackManager';
+ import { loadCommands, registerCommands } from './handlers/commandHandler';
+ import type { Command } from './types';
++import { logger } from './utils/logger';
+ 
+ dotenv.config();
+ 
+@@ -18,7 +19,7 @@ const BOT_TOKEN = process.env.BOT_TOKEN;
+ const CLIENT_ID = process.env.CLIENT_ID;
+ 
+ if (!BOT_TOKEN || !CLIENT_ID) {
+-  console.error('FATAL ERROR: BOT_TOKEN or CLIENT_ID is missing in .env file.');
++  logger.error('FATAL ERROR: BOT_TOKEN or CLIENT_ID is missing in .env file.', { scope: 'boot' });
+   process.exit(1);
+ }
+ // --- End Check ---
+@@ -42,17 +43,18 @@ client.playbackManagers = new Map<string, GuildPlaybackManager>();
+ 
+ // --- Register Commands ---
+ client.once(Events.ClientReady, async (readyClient) => {
+-  console.log(`Logged in as ${readyClient.user.tag}!`);
+-  console.log(`Bot ID: ${readyClient.user.id}`);
++  logger.info(`Logged in as ${readyClient.user.tag}!`, { scope: 'boot' });
++  logger.info(`Bot ID: ${readyClient.user.id}`, { scope: 'boot' });
+ 
+   if (CLIENT_ID !== readyClient.user.id) {
+-    console.warn(
+-      `WARNING: CLIENT_ID in .env (${CLIENT_ID}) does not match actual bot ID (${readyClient.user.id}). Commands might fail to register or work correctly.`,
++    logger.warn(
++      `CLIENT_ID in .env (${CLIENT_ID}) does not match actual bot ID (${readyClient.user.id}). Commands might fail to register or work correctly.`,
++      { scope: 'boot' },
+     );
+   }
+ 
+   if (client.commands.size === 0) {
+-    console.error('No commands were loaded. Skipping registration.');
++    logger.error('No commands were loaded. Skipping registration.', { scope: 'boot' });
+     return;
+   }
+   await registerCommands(
+@@ -66,8 +68,9 @@ client.once(Events.ClientReady, async (readyClient) => {
+     if (!currentGuildIds.includes(guildId)) {
+       client.playbackManagers.get(guildId)?.destroy();
+       client.playbackManagers.delete(guildId);
+-      console.log(
++      logger.info(
+         `Cleaned up stale playback manager for guild ${guildId} (not found).`,
++        { guildId, scope: 'boot' },
+       );
+     }
+   }
+@@ -75,6 +78,8 @@ client.once(Events.ClientReady, async (readyClient) => {
+ 
+ // --- Handle Interactions ---
+ client.on(Events.InteractionCreate, async (interaction) => {
++  const requestId = (crypto.randomUUID && crypto.randomUUID()) || Math.random().toString(36).slice(2);
++  (interaction as any).requestId = requestId;
+   // Handle Autocomplete Separately
+   if (interaction.isAutocomplete()) {
+     const command = client.commands.get(interaction.commandName);
+@@ -82,8 +87,9 @@ client.on(Events.InteractionCreate, async (interaction) => {
+     try {
+       await command.autocomplete(interaction);
+     } catch (error) {
+-      console.error(
+-        `Error handling autocomplete for ${interaction.commandName}:`,
++      logger.error(
++        `Error handling autocomplete for ${interaction.commandName}: ${(error as Error).message}`,
++        { command: interaction.commandName, guildId: interaction.guildId ?? undefined, scope: 'autocomplete' },
+         error,
+       );
+     }
+@@ -96,14 +102,15 @@ client.on(Events.InteractionCreate, async (interaction) => {
+   const command = client.commands.get(interaction.commandName);
+ 
+   if (!command) {
+-    console.error(`No command matching ${interaction.commandName} was found.`);
++    logger.error(`No command matching ${interaction.commandName} was found.`, { command: interaction.commandName, guildId: interaction.guildId, scope: 'interaction' });
+     try {
+-      // --- Reverted to ephemeral: true ---
+       await interaction.reply({
+         content: 'Error: Command not found!',
+         ephemeral: true,
+       });
+-    } catch {}
++    } catch (replyError) {
++      logger.error('Failed to reply for missing command', { command: interaction.commandName, guildId: interaction.guildId, scope: 'interaction' }, replyError);
++    }
+     return;
+   }
+ 
+@@ -112,7 +119,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
+   if (!manager) {
+     const guildId = interaction.guildId;
+     manager = new GuildPlaybackManager(guildId, (error) => {
+-      console.error(`[FATAL MANAGER ERROR] Guild ${guildId}: ${error.message}`);
++      logger.error(`[FATAL MANAGER ERROR] ${error.message}`, { guildId, scope: 'manager' }, error);
+       const deadManager = client.playbackManagers.get(guildId);
+       if (deadManager) {
+         deadManager.destroy();
+@@ -122,12 +129,14 @@ client.on(Events.InteractionCreate, async (interaction) => {
+     client.playbackManagers.set(interaction.guildId, manager);
+   }
+ 
++  logger.info('Command received', { guildId: interaction.guildId ?? undefined, command: interaction.commandName, scope: 'interaction', requestId, event: 'command_start' });
+   // --- Execute Command ---
+   try {
+     await command.execute(interaction, manager);
+   } catch (error) {
+-    console.error(
+-      `Error executing command ${interaction.commandName} for guild ${interaction.guildId}:`,
++    logger.error(
++      `Error executing command ${interaction.commandName} for guild ${interaction.guildId}: ${(error as Error).message}`,
++      { command: interaction.commandName, guildId: interaction.guildId, scope: 'interaction' },
+       error,
+     );
+     const content = 'There was an error while executing this command!';
+diff --git a/src/lib/ConfigStore.ts b/src/lib/ConfigStore.ts
+index d38550e..e3cd20c 100644
+--- a/src/lib/ConfigStore.ts
++++ b/src/lib/ConfigStore.ts
+@@ -1,5 +1,6 @@
+ import fs from 'fs';
+ import path from 'path';
++import { logger } from '../utils/logger';
+ 
+ export type VoiceConfig = {
+   opusBitrate: number; // bps
+@@ -27,7 +28,7 @@ const DEFAULTS: VoiceConfig = {
+   aloneGraceSeconds: 60,
+ };
+ 
+-const CONFIG_PATH = path.resolve(process.cwd(), 'config.json');
++let CONFIG_PATH = path.resolve(process.cwd(), 'config.json');
+ 
+ let cache: VoiceConfig = { ...DEFAULTS };
+ 
+@@ -84,7 +85,8 @@ function load(): void {
+       };
+     }
+   } catch (e) {
+-    // Keep defaults on error
++    // Keep defaults on error, but surface for visibility
++    logger.warn('Failed to load config.json, using defaults.', { scope: 'config' }, e);
+   }
+ }
+ 
+@@ -92,7 +94,7 @@ function save(): void {
+   try {
+     fs.writeFileSync(CONFIG_PATH, JSON.stringify(cache, null, 2), 'utf8');
+   } catch {
+-    // ignore write errors (ephemeral FS, permissions, etc.)
++    logger.warn('Failed to persist config.json (ephemeral FS or permissions).', { scope: 'config' });
+   }
+ }
+ 
+@@ -124,4 +126,10 @@ export const ConfigStore = {
+   path(): string {
+     return CONFIG_PATH;
+   },
++  // For tests only
++  setPathForTest(p: string): void {
++    CONFIG_PATH = p;
++    cache = { ...DEFAULTS };
++    load();
++  },
+ };
+diff --git a/src/lib/GuildPlaybackManager.ts b/src/lib/GuildPlaybackManager.ts
+index aad92f3..5d6b65d 100644
+--- a/src/lib/GuildPlaybackManager.ts
++++ b/src/lib/GuildPlaybackManager.ts
+@@ -1,21 +1,27 @@
+-import fs from 'fs'; // <-- Added missing import
++import fs from 'fs';
+ import {
+   AudioPlayer,
+   AudioPlayerStatus,
+   createAudioPlayer,
+   createAudioResource,
+   type AudioResource,
+-  entersState, // <-- Added explicit import
++  entersState,
+   joinVoiceChannel,
+   NoSubscriberBehavior,
+   VoiceConnection,
+   VoiceConnectionStatus,
+ } from '@discordjs/voice';
+-import type { BaseGuildVoiceChannel } from 'discord.js'; // Use type import
+-import type { Song } from '../types'; // Use type import
++import type { BaseGuildVoiceChannel } from 'discord.js';
++import type { Song } from '../types';
+ import { ConfigStore } from './ConfigStore';
++import { SongQueue } from './SongQueue';
++import { AsyncLock } from '../utils/asyncLock';
++import { logger, type LogContext } from '../utils/logger';
++import { PlaybackStateMachine, type PlaybackState } from './PlaybackStateMachine';
++import { TimerManager } from './TimerManager';
+ 
+ type VoiceErrorCallback = (error: Error) => void;
++type Context = Pick<LogContext, 'requestId'>;
+ 
+ export class GuildPlaybackManager {
+   public readonly guildId: string;
+@@ -24,28 +30,28 @@ export class GuildPlaybackManager {
+   private resource: AudioResource | null = null;
+   private subscription: import('@discordjs/voice').PlayerSubscription | null = null;
+   private currentSong: Song | null = null;
+-  private isLooping: boolean = false;
+-  private onErrorCallback: VoiceErrorCallback;
+-  // No custom pipeline retained
+-  // Use ReturnType<...> for better type safety with setTimeout
+-  private inactivityTimeout: ReturnType<typeof setTimeout> | null = null; // <-- Changed type
++  private isLooping = false;
++  private readonly onErrorCallback: VoiceErrorCallback;
++  private inactivityTimeout: ReturnType<typeof setTimeout> | null = null;
+   private static readonly DEFAULT_INACTIVITY_TIMEOUT_MS = 300_000; // 5 minutes
+   private sleepTimeout: ReturnType<typeof setTimeout> | null = null;
+   private aloneTimer: ReturnType<typeof setTimeout> | null = null;
+   private fadeInterval: ReturnType<typeof setInterval> | null = null;
+-  private queue: Song[] = [];
 -
--   // No fade timers
--@@ -241,7 +242,7 @@ export class GuildPlaybackManager {
--       // Build resource using library defaults for compatibility and stability
--       const resource: AudioResource = createAudioResource(songToPlay.path, {
--         metadata: songToPlay,
---        inlineVolume: false,
--+        inlineVolume: true,
--       });
--       // Apply encoder tuning when available
--       if (resource.encoder) {
--@@ -250,15 +251,23 @@ export class GuildPlaybackManager {
--         try { resource.encoder.setFEC(Boolean(opusFec)); } catch {}
--         try { resource.encoder.setPLP(Math.max(0, Math.min(1, opusPlp))); } catch {}
--       }
--+      // Gentle fade-in to avoid pops at start
--+      const { microFadeMs } = ConfigStore.get();
--+      if (resource.volume) {
--+        resource.volume.setVolume(Math.max(0, microFadeMs > 0 ? 0 : 1));
--+      }
--       this.player.play(resource);
--       this.resource = resource;
--       this.currentSong = songToPlay;
--+      if (resource.volume && microFadeMs > 0) {
--+        this.startFade(0, 1, microFadeMs).catch(() => {});
--+      }
--       return `Now playing: **${songToPlay.name}**`;
--     } catch (playError) {
--       console.error(`[Guild ${this.guildId}] Tuned pipeline failed, falling back:`, playError);
--       // Fallback to library defaults if our tuned pipeline errors
--       try {
---        const resource = createAudioResource(songToPlay.path, { metadata: songToPlay, inlineVolume: false });
--+        const resource = createAudioResource(songToPlay.path, { metadata: songToPlay, inlineVolume: true });
--         // If prism chose an internal Opus encoder, apply options when possible
--         // Note: When FFmpeg(libopus) path is selected internally, encoder may be undefined
--         if (resource.encoder) {
--@@ -267,9 +276,16 @@ export class GuildPlaybackManager {
--           try { resource.encoder.setFEC(Boolean(opusFec)); } catch {}
--           try { resource.encoder.setPLP(opusPlp); } catch {}
--         }
--+        const { microFadeMs } = ConfigStore.get();
--+        if (resource.volume) {
--+          resource.volume.setVolume(Math.max(0, microFadeMs > 0 ? 0 : 1));
--+        }
--         this.player.play(resource);
--         this.resource = resource;
--         this.currentSong = songToPlay;
--+        if (resource.volume && microFadeMs > 0) {
--+          this.startFade(0, 1, microFadeMs).catch(() => {});
--+        }
--         return `Now playing: **${songToPlay.name}**`;
--       } catch (fallbackError) {
--         console.error(
--@@ -288,6 +304,7 @@ export class GuildPlaybackManager {
--   public stop(): void {
--     if (this.player.state.status !== AudioPlayerStatus.Idle) {
--       console.log(`[Guild ${this.guildId}] Stopping playback.`);
--+      this.clearFade();
--       this.player.stop(true);
--       this.resource = null;
--       this.currentSong = null; // Clear current song when stopped
--@@ -424,6 +441,7 @@ export class GuildPlaybackManager {
--     console.log(
--       `[Guild ${this.guildId}] Cleaning up resources (destroyConnection: ${destroyConnection})...`,
--     );
--+    this.clearFade();
--     this.clearInactivityDisconnect();
--     if (this.player) {
--       this.player.stop(true);
--@@ -477,9 +495,51 @@ export class GuildPlaybackManager {
+-  // No fade timers
++  private readonly queue = new SongQueue();
++  private readonly playLock = new AsyncLock();
++  private readonly joinLock = new AsyncLock();
++  private readonly state = new PlaybackStateMachine();
++  private readonly timers = new TimerManager();
++  private connectionListeners: Array<{ event: VoiceConnectionStatus | 'error'; listener: (...args: any[]) => void }> = [];
++  private watchdog: ReturnType<typeof setInterval> | null = null;
+ 
+   constructor(guildId: string, onError: VoiceErrorCallback) {
+     this.guildId = guildId;
+     this.player = this.createPlayer();
+     this.onErrorCallback = onError;
+-    console.log(`[Guild ${guildId}] Playback Manager created.`);
++    logger.info('Playback Manager created', { guildId, scope: 'manager', event: 'manager_created' });
+   }
+ 
+-  // No custom pipeline; rely on library resource builder for stability
 -
--   public setVolume(_vol: number): string { return 'Volume control disabled.'; }
+   private createPlayer(): AudioPlayer {
+     const { maxMissedFrames } = ConfigStore.get();
+     const player = createAudioPlayer({
+@@ -56,326 +62,287 @@ export class GuildPlaybackManager {
+     });
+ 
+     player.on(AudioPlayerStatus.Idle, (oldState) => {
+-      if (oldState.status === AudioPlayerStatus.Playing) {
+-        console.log(`[Guild ${this.guildId}] Player Idle.`);
+-        const previousSong = this.currentSong; // Store before clearing
+-        this.currentSong = null;
+-        if (this.isLooping && oldState.resource.metadata) {
+-          // Use the song data attached to the resource metadata when it was created
+-          const loopedSong = oldState.resource.metadata as Song;
+-          // Double-check if it's the same song in case state changed rapidly
+-          if (previousSong?.path === loopedSong.path) {
+-            console.log(`[Guild ${this.guildId}] Looping: ${loopedSong.name}`);
+-            this.play(loopedSong).catch((e) =>
+-              console.error(`[Guild ${this.guildId}] Error self-looping:`, e),
+-            ); // Re-play the same song
+-          } else {
+-            console.log(
+-              `[Guild ${this.guildId}] Loop was enabled but song changed before looping.`,
+-            );
+-            this.scheduleInactivityDisconnect();
+-          }
+-        } else if (this.queue.length > 0) {
+-          const next = this.queue.shift()!;
+-          this.play(next).catch((e) => {
+-            console.error(`[Guild ${this.guildId}] Failed to play queued song:`, e);
+-            this.scheduleInactivityDisconnect();
+-          });
+-        } else {
+-          this.scheduleInactivityDisconnect();
+-        }
+-      }
++      if (oldState.status !== AudioPlayerStatus.Playing) return;
++      void this.handleIdle(oldState.resource);
+     });
+ 
+     player.on('error', (error) => {
+-      console.error(
+-        `[Guild ${this.guildId}] Audio Player Error: ${error.message}`,
+-        error,
+-      );
+-      if (error.resource && error.resource.metadata) {
+-        const erroredSong = error.resource.metadata as Song;
+-        console.error(
+-          `[Guild ${this.guildId}] Error occurred during playback of: ${erroredSong.name}`,
+-        );
+-      }
+-      this.stop(); // Stop playback
++      const songName =
++        (error.resource?.metadata as Song | undefined)?.name ?? 'unknown';
++      logger.error(`Audio player error: ${error.message}`, {
++        guildId: this.guildId,
++        scope: 'player',
++        event: 'player_error',
++      }, { song: songName, stack: error.stack });
++      this.stop();
+       this.scheduleInactivityDisconnect();
+     });
+ 
+     return player;
+   }
+ 
+-  // Volume removed
++  private async handleIdle(resource: AudioResource | undefined): Promise<void> {
++    const previous = resource?.metadata as Song | undefined;
++    this.currentSong = null;
++    if (this.isLooping && previous) {
++      logger.info('Looping current song', { guildId: this.guildId, scope: 'idle', event: 'loop' }, { song: previous.name });
++      try {
++        await this.play(previous);
++      } catch (e) {
++        logger.error('Failed to loop song', { guildId: this.guildId, scope: 'idle', event: 'loop_error' }, e);
++        this.scheduleInactivityDisconnect();
++      }
++      return;
++    }
++
++    const next = this.queue.dequeue();
++    if (next) {
++      logger.info('Dequeued next song', { guildId: this.guildId, scope: 'idle', event: 'dequeue' }, { song: next.name });
++      try {
++        await this.play(next);
++      } catch (e) {
++        logger.error('Failed to play queued song', { guildId: this.guildId, scope: 'idle', event: 'queue_play_error' }, e);
++        this.scheduleInactivityDisconnect();
++      }
++      return;
++    }
++
++    this.scheduleInactivityDisconnect();
++    this.stateSafely('READY');
++  }
+ 
+   private scheduleInactivityDisconnect(): void {
+     this.clearInactivityDisconnect();
+-    console.log(`[Guild ${this.guildId}] Scheduling inactivity disconnect.`);
+     const mins = ConfigStore.get().inactivityMinutes;
+-    if (mins <= 0) return; // disabled
+-    const ms = Math.round(mins * 60_000);
+-    this.inactivityTimeout = setTimeout(() => {
+-      console.log(`[Guild ${this.guildId}] Disconnecting due to inactivity.`);
++    if (mins <= 0) return;
++    const ms = Math.round(mins * 60_000) || GuildPlaybackManager.DEFAULT_INACTIVITY_TIMEOUT_MS;
++    logger.info('Scheduling inactivity disconnect', { guildId: this.guildId, scope: 'lifecycle', event: 'inactivity_schedule' }, { delayMs: ms });
++    this.inactivityTimeout = this.timers.setTimeout(() => {
++      logger.info('Disconnecting due to inactivity', { guildId: this.guildId, scope: 'lifecycle', event: 'inactivity_leave' });
+       this.leave();
+-    }, ms || GuildPlaybackManager.DEFAULT_INACTIVITY_TIMEOUT_MS);
++    }, ms);
+   }
+ 
+   private clearInactivityDisconnect(): void {
+     if (this.inactivityTimeout) {
+-      clearTimeout(this.inactivityTimeout);
++      this.timers.clear(this.inactivityTimeout);
+       this.inactivityTimeout = null;
+-      // console.log(`[Guild ${this.guildId}] Cleared inactivity disconnect timer.`); // Can be noisy
+     }
+   }
+ 
+   private destroyPipeline(): void { /* no-op */ }
+ 
+-  public async join(channel: BaseGuildVoiceChannel): Promise<void> {
+-    if (
+-      this.connection &&
+-      this.connection.joinConfig.channelId === channel.id &&
+-      this.connection.state.status !== VoiceConnectionStatus.Destroyed
+-    ) {
+-      // console.log(`[Guild ${this.guildId}] Already connected to ${channel.name}`); // Can be noisy
+-      if (this.connection.state.status === VoiceConnectionStatus.Ready && !this.subscription) {
+-        console.log(`[Guild ${this.guildId}] Re-subscribing player.`);
+-        this.subscription = this.connection.subscribe(this.player) ?? null;
++  public async join(channel: BaseGuildVoiceChannel, ctx?: Context): Promise<void> {
++    await this.joinLock.runExclusive(async () => {
++      if (
++        this.connection &&
++        this.connection.joinConfig.channelId === channel.id &&
++        this.connection.state.status !== VoiceConnectionStatus.Destroyed
++      ) {
++        if (this.connection.state.status === VoiceConnectionStatus.Ready && !this.subscription) {
++          logger.info('Re-subscribing player after reconnect', { guildId: this.guildId, scope: 'join', requestId: ctx?.requestId, event: 'resubscribe' });
++          this.subscription = this.connection.subscribe(this.player) ?? null;
++        }
++        this.clearInactivityDisconnect();
++        return;
+       }
+-      this.clearInactivityDisconnect();
+-      return;
+-    }
 -
---  private startFade(_from: number, _to: number, _durationMs: number): void { /* no-op */ }
--+  private clearFade(): void {
--+    if (this.fadeInterval) {
--+      clearInterval(this.fadeInterval);
--+      this.fadeInterval = null;
--+    }
--+  }
--+
--+  private async startFade(from: number, to: number, durationMs: number): Promise<void> {
--+    if (!this.resource || !this.resource.volume) return;
--+    this.clearFade();
--+    const vol = this.resource.volume;
--+    if (durationMs <= 0) {
--+      vol.setVolume(Math.max(0, to));
--+      return;
--+    }
--+    vol.setVolume(Math.max(0, from));
--+    const steps = Math.max(1, Math.round(durationMs / 50));
--+    const stepMs = durationMs / steps;
--+    const delta = (to - from) / steps;
--+    let current = from;
--+    return new Promise((resolve) => {
--+      this.fadeInterval = setInterval(() => {
--+        current += delta;
--+        const reached = delta >= 0 ? current >= to : current <= to;
--+        if (reached) {
--+          vol.setVolume(Math.max(0, to));
--+          this.clearFade();
--+          resolve();
--+          return;
--+        }
--+        vol.setVolume(Math.max(0, current));
--+      }, stepMs);
--+    });
--+  }
+-    if (this.connection) {
+-      console.log(
+-        `[Guild ${this.guildId}] Leaving previous channel before joining ${channel.name}`,
+-      );
+-      this.leave(true);
+-    }
 -
---  public async fadeOutStop(_durationMs = 0): Promise<void> { this.stop(); }
--+  public async fadeOutStop(durationMs = 0): Promise<void> {
--+    if (this.resource?.volume) {
--+      const currentVol =
--+        typeof (this.resource.volume as any).volume === 'number'
--+          ? (this.resource.volume as any).volume
--+          : 1;
--+      await this.startFade(currentVol, 0, durationMs);
--+    }
--+    this.stop();
--+  }
+-    console.log(`[Guild ${this.guildId}] Attempting to join ${channel.name}`);
+-    const newConnection = joinVoiceChannel({
+-      channelId: channel.id,
+-      guildId: this.guildId,
+-      adapterCreator: channel.guild.voiceAdapterCreator,
+-      selfDeaf: true, // Good practice to self-deafen
+-    });
+ 
+-    newConnection.on(VoiceConnectionStatus.Destroyed, () => {
+-      console.log(`[Guild ${this.guildId}] Connection Destroyed.`);
+-      this.cleanup(false); // Cleanup state but don't try to destroy connection again
+-    });
++      if (this.connection) {
++        logger.info('Leaving previous channel before joining new one', { guildId: this.guildId, scope: 'join', requestId: ctx?.requestId, event: 'leave_before_join' });
++        this.leave(true);
++      }
+ 
+-    newConnection.on('error', (error) => {
+-      console.error(
+-        `[Guild ${this.guildId}] Voice Connection Error: ${error.message}`,
+-      );
+-      this.leave(true);
+-      this.onErrorCallback(error);
+-    });
++      logger.info(`Attempting to join ${channel.name}`, { guildId: this.guildId, scope: 'join', requestId: ctx?.requestId, event: 'join_attempt' });
++      this.stateSafely('JOINING');
++      const newConnection = joinVoiceChannel({
++        channelId: channel.id,
++        guildId: this.guildId,
++        adapterCreator: channel.guild.voiceAdapterCreator,
++        selfDeaf: true,
++      });
+ 
+-    newConnection.on(
+-      VoiceConnectionStatus.Disconnected,
+-      async (oldState, newState) => {
+-        console.warn(`[Guild ${this.guildId}] Connection Disconnected.`);
++      const onDestroyed = () => {
++        logger.warn('Connection destroyed', { guildId: this.guildId, scope: 'join', requestId: ctx?.requestId, event: 'destroyed' });
++        this.cleanup(false);
++      };
++      newConnection.on(VoiceConnectionStatus.Destroyed, onDestroyed);
++      this.connectionListeners.push({ event: VoiceConnectionStatus.Destroyed, listener: onDestroyed });
++
++      const onError = (error: Error) => {
++        logger.error(`Voice connection error: ${error.message}`, { guildId: this.guildId, scope: 'join', requestId: ctx?.requestId, event: 'connection_error' }, error);
++        this.leave(true);
++        this.onErrorCallback(error);
++      };
++      newConnection.on('error', onError);
++      this.connectionListeners.push({ event: 'error', listener: onError });
++
++      const onDisconnected = async () => {
++        logger.warn('Connection disconnected, attempting recovery', { guildId: this.guildId, scope: 'join', requestId: ctx?.requestId, event: 'disconnected' });
+         try {
+           await Promise.race([
+             entersState(newConnection, VoiceConnectionStatus.Signalling, 5_000),
+             entersState(newConnection, VoiceConnectionStatus.Connecting, 5_000),
+           ]);
+-          console.log(`[Guild ${this.guildId}] Connection recovered.`);
++          logger.info('Connection recovered after disconnect', { guildId: this.guildId, scope: 'join', requestId: ctx?.requestId, event: 'recovered' });
+         } catch (error) {
+-          // Don't destroy connection if it's already destroyed (e.g., during graceful shutdown)
+           if (newConnection.state.status !== VoiceConnectionStatus.Destroyed) {
+-            console.log(
+-              `[Guild ${this.guildId}] Connection permanently lost, cleaning up.`,
+-            );
+-            this.leave(true); // Attempt cleanup
++            logger.warn('Connection permanently lost; cleaning up', { guildId: this.guildId, scope: 'join', requestId: ctx?.requestId, event: 'lost' }, error);
++            this.leave(true);
+           }
+         }
+-      },
+-    );
++      };
++      newConnection.on(VoiceConnectionStatus.Disconnected, onDisconnected);
++      this.connectionListeners.push({ event: VoiceConnectionStatus.Disconnected, listener: onDisconnected });
+ 
+-    try {
+-      // Wait for the connection to be ready
+-      await entersState(newConnection, VoiceConnectionStatus.Ready, 15_000);
+-      this.connection = newConnection;
+-      this.subscription = this.connection.subscribe(this.player) ?? null;
+-      console.log(
+-        `[Guild ${this.guildId}] Successfully joined ${channel.name} and subscribed player.`,
+-      );
+-      this.clearInactivityDisconnect();
+-    } catch (error) {
+-      console.error(
+-        `[Guild ${this.guildId}] Failed to join or become ready in ${channel.name}:`,
+-        error,
+-      );
+-      // Check status before destroying
+-      if (newConnection.state.status !== VoiceConnectionStatus.Destroyed) {
+-        newConnection.destroy();
++      try {
++        await entersState(newConnection, VoiceConnectionStatus.Ready, 15_000);
++        this.connection = newConnection;
++        this.subscription = this.connection.subscribe(this.player) ?? null;
++        this.stateSafely('READY');
++        logger.info(`Joined ${channel.name} and subscribed player`, { guildId: this.guildId, scope: 'join', requestId: ctx?.requestId, event: 'joined' });
++        this.startWatchdog();
++        this.clearInactivityDisconnect();
++      } catch (error) {
++        logger.error('Failed to become ready in target channel', { guildId: this.guildId, scope: 'join', requestId: ctx?.requestId, event: 'join_failed' }, error);
++        if (newConnection.state.status !== VoiceConnectionStatus.Destroyed) {
++          newConnection.destroy();
++        }
++        this.connection = null;
++        this.stateSafely('IDLE');
++        throw new Error('Failed to establish a stable voice connection.');
+       }
+-      this.connection = null;
+-      throw new Error('Failed to establish a stable voice connection.');
+-    }
++    });
+   }
+ 
+-  // Note: Renamed parameter for clarity
+-  public async play(songToPlay: Song): Promise<string> {
+-    if (
+-      !this.connection ||
+-      this.connection.state.status !== VoiceConnectionStatus.Ready
+-    ) {
+-      throw new Error(
+-        'Not connected to a voice channel or connection not ready.',
+-      );
+-    }
+-    if (!fs.existsSync(songToPlay.path)) {
+-      console.error(
+-        `[Guild ${this.guildId}] Error: Song file not found at path: ${songToPlay.path}`,
+-      );
+-      // Reload songs in case file was added after startup?
+-      // reloadSongs(); // Assuming reloadSongs is imported from utils
+-      throw new Error(`Could not find the file for "${songToPlay.name}".`);
+-    }
 -
--   public startSleepTimer(durationMs: number, fadeOutMs = 2000): string {
--     if (this.sleepTimeout) {
--diff --git a/src/utils/findSong.ts b/src/utils/findSong.ts
--index fc14531..0277326 100644
----- a/src/utils/findSong.ts
--+++ b/src/utils/findSong.ts
--@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
-- import Fuse from 'fuse.js';
-- import type { Song } from '../types';
--
---const AUDIO_RE = /\.(mp3|ogg|wav|flac|m4a|aac)$/i;
--+const AUDIO_RE = /\.(mp3|ogg|wav|flac|m4a|aac|opus)$/i;
--
-- function candidateDirs(): string[] {
--   // Prefer root 'songs/' but also support legacy 'src/songs/'
--diff --git a/tsconfig.json b/tsconfig.json
--index c314a05..b1168b1 100644
----- a/tsconfig.json
--+++ b/tsconfig.json
--@@ -23,6 +23,6 @@
--     "noUnusedLocals": false,
--     "noUnusedParameters": false,
--     "noPropertyAccessFromIndexSignature": false,
---    "types": ["bun-types"]
--+    "types": ["bun"]
--   }
-- }
+-    console.log(`[Guild ${this.guildId}] Playing ${songToPlay.name}`);
+-    this.clearInactivityDisconnect();
+-    try {
+-      // Build resource using library defaults for compatibility and stability
+-      const resource: AudioResource = createAudioResource(songToPlay.path, {
+-        metadata: songToPlay,
+-        inlineVolume: true,
+-      });
+-      // Apply encoder tuning when available
+-      if (resource.encoder) {
+-        const { opusBitrate, opusFec, opusPlp } = ConfigStore.get();
+-        try { resource.encoder.setBitrate(opusBitrate); } catch {}
+-        try { resource.encoder.setFEC(Boolean(opusFec)); } catch {}
+-        try { resource.encoder.setPLP(Math.max(0, Math.min(1, opusPlp))); } catch {}
++  public async play(songToPlay: Song, ctx?: Context): Promise<string> {
++    return this.playLock.runExclusive(async () => {
++      if (!this.state.canTransition('PLAYING')) {
++        logger.warn('Play ignored due to invalid state', { guildId: this.guildId, scope: 'play', requestId: ctx?.requestId, event: 'invalid_state' }, { state: this.state.getState() });
++        return 'Unable to play right now.';
+       }
+-      // Gentle fade-in to avoid pops at start
+-      const { microFadeMs } = ConfigStore.get();
+-      if (resource.volume) {
+-        resource.volume.setVolume(Math.max(0, microFadeMs > 0 ? 0 : 1));
++      if (
++        !this.connection ||
++        this.connection.state.status !== VoiceConnectionStatus.Ready
++      ) {
++        throw new Error('Not connected to a voice channel or connection not ready.');
+       }
+-      this.player.play(resource);
+-      this.resource = resource;
+-      this.currentSong = songToPlay;
+-      if (resource.volume && microFadeMs > 0) {
+-        this.startFade(0, 1, microFadeMs).catch(() => {});
++      if (!fs.existsSync(songToPlay.path)) {
++        const message = `Song file not found at path: ${songToPlay.path}`;
++        logger.error(message, { guildId: this.guildId, scope: 'play', requestId: ctx?.requestId, event: 'missing_file' });
++        throw new Error(`Could not find the file for "${songToPlay.name}".`);
+       }
+-      return `Now playing: **${songToPlay.name}**`;
+-    } catch (playError) {
+-      console.error(`[Guild ${this.guildId}] Tuned pipeline failed, falling back:`, playError);
+-      // Fallback to library defaults if our tuned pipeline errors
++
++      logger.info('Starting playback', { guildId: this.guildId, scope: 'play', requestId: ctx?.requestId, event: 'play_start' }, { song: songToPlay.name });
++      this.clearInactivityDisconnect();
++      const { microFadeMs, opusBitrate, opusFec, opusPlp } = ConfigStore.get();
++
+       try {
+-        const resource = createAudioResource(songToPlay.path, { metadata: songToPlay, inlineVolume: true });
+-        // If prism chose an internal Opus encoder, apply options when possible
+-        // Note: When FFmpeg(libopus) path is selected internally, encoder may be undefined
++        const resource: AudioResource = createAudioResource(songToPlay.path, {
++          metadata: songToPlay,
++          inlineVolume: true,
++        });
+         if (resource.encoder) {
+-          const { opusBitrate, opusFec, opusPlp } = ConfigStore.get();
+-          try { resource.encoder.setBitrate(opusBitrate); } catch {}
+-          try { resource.encoder.setFEC(Boolean(opusFec)); } catch {}
+-          try { resource.encoder.setPLP(opusPlp); } catch {}
++          try { resource.encoder.setBitrate(opusBitrate); } catch (e) { logger.debug('setBitrate failed', { guildId: this.guildId, scope: 'play', requestId: ctx?.requestId }, e); }
++          try { resource.encoder.setFEC(Boolean(opusFec)); } catch (e) { logger.debug('setFEC failed', { guildId: this.guildId, scope: 'play', requestId: ctx?.requestId }, e); }
++          try { resource.encoder.setPLP(Math.max(0, Math.min(1, opusPlp))); } catch (e) { logger.debug('setPLP failed', { guildId: this.guildId, scope: 'play', requestId: ctx?.requestId }, e); }
+         }
+-        const { microFadeMs } = ConfigStore.get();
+         if (resource.volume) {
+           resource.volume.setVolume(Math.max(0, microFadeMs > 0 ? 0 : 1));
+         }
+         this.player.play(resource);
+         this.resource = resource;
+         this.currentSong = songToPlay;
++        this.stateSafely('PLAYING');
+         if (resource.volume && microFadeMs > 0) {
+-          this.startFade(0, 1, microFadeMs).catch(() => {});
++          await this.startFade(0, 1, microFadeMs);
+         }
+         return `Now playing: **${songToPlay.name}**`;
+-      } catch (fallbackError) {
+-        console.error(
+-          `[Guild ${this.guildId}] Error creating resource or playing (Path: ${songToPlay.path}):`,
+-          fallbackError,
+-        );
++      } catch (error) {
++        logger.error('Error creating resource or playing', { guildId: this.guildId, scope: 'play', requestId: ctx?.requestId, event: 'play_error' }, error);
+         this.currentSong = null;
++        this.stateSafely('READY');
+         this.scheduleInactivityDisconnect();
+-        throw new Error(
+-          `Failed to play "${songToPlay.name}". File might be corrupted or unsupported.`,
+-        );
++        throw new Error(`Failed to play "${songToPlay.name}". File might be corrupted or unsupported.`);
+       }
+-    }
++    });
+   }
+ 
+-  public stop(): void {
++  public stop(ctx?: Context): void {
+     if (this.player.state.status !== AudioPlayerStatus.Idle) {
+-      console.log(`[Guild ${this.guildId}] Stopping playback.`);
++      logger.info('Stopping playback', { guildId: this.guildId, scope: 'control', requestId: ctx?.requestId, event: 'stop' });
+       this.clearFade();
+       this.player.stop(true);
+       this.resource = null;
+-      this.currentSong = null; // Clear current song when stopped
+-      // Make sure to tear down any custom pipeline
++      this.currentSong = null;
+       this.destroyPipeline();
+-      // Note: We keep the loop state as is. User might want it on for the next song.
+       this.scheduleInactivityDisconnect();
++      this.stateSafely('READY');
+     } else {
+-      console.log(
+-        `[Guild ${this.guildId}] Stop requested but player already idle.`,
+-      );
++      logger.debug('Stop requested but player already idle', { guildId: this.guildId, scope: 'control', requestId: ctx?.requestId, event: 'stop_ignored' });
+     }
+   }
+ 
+-  public pause(): boolean {
++  public pause(ctx?: Context): boolean {
+     const ok = this.player.pause(true);
+-    if (ok) this.scheduleInactivityDisconnect();
++    if (ok) {
++      logger.info('Paused playback', { guildId: this.guildId, scope: 'control', requestId: ctx?.requestId, event: 'pause' });
++      this.scheduleInactivityDisconnect();
++    }
+     return ok;
+   }
+ 
+-  public resume(): boolean {
++  public resume(ctx?: Context): boolean {
+     const ok = this.player.unpause();
+-    if (ok) this.clearInactivityDisconnect();
++    if (ok) {
++      logger.info('Resumed playback', { guildId: this.guildId, scope: 'control', requestId: ctx?.requestId, event: 'resume' });
++      this.clearInactivityDisconnect();
++    }
+     return ok;
+   }
+ 
+-  public leave(silent = false): void {
+-    console.log(`[Guild ${this.guildId}] Leave requested.`);
+-    this.cleanup(); // Call full cleanup
++  public leave(silent = false, ctx?: Context): void {
++    logger.info('Leave requested', { guildId: this.guildId, scope: 'lifecycle', requestId: ctx?.requestId, event: 'leave' });
++    this.cleanup();
+     if (!silent) {
+-      console.log(`[Guild ${this.guildId}] Left voice channel.`);
++      logger.info('Left voice channel', { guildId: this.guildId, scope: 'lifecycle', requestId: ctx?.requestId, event: 'left' });
+     }
+   }
+ 
+-  // Queue controls
+   public enqueue(song: Song): string {
+-    this.queue.push(song);
+-    return `Queued: ${song.name} (${this.queue.length} in queue)`;
++    return this.queue.enqueue(song);
+   }
+ 
+-  public getQueue(): Song[] { return [...this.queue]; }
+-  public clearQueue(): void { this.queue = []; }
++  public getQueue(): Song[] { return this.queue.list(); }
++  public clearQueue(): void { this.queue.clear(); }
+ 
+-  public async skip(fadeMs = 250): Promise<string> {
+-    if (!this.currentSong) {
+-      return 'Nothing is playing.';
+-    }
+-    try {
+-      await this.fadeOutStop(fadeMs);
+-    } catch {
+-      this.stop();
+-    }
+-    if (this.queue.length > 0) {
+-      const next = this.queue.shift()!;
+-      await this.play(next);
+-      return `Skipped. Now playing: ${next.name}`;
+-    }
+-    return 'Skipped. Queue is empty.';
++  public async skip(fadeMs = 250, ctx?: Context): Promise<string> {
++    return this.playLock.runExclusive(async () => {
++      if (!this.currentSong) {
++        logger.warn('Skip ignored: no track playing', { guildId: this.guildId, scope: 'control', requestId: ctx?.requestId, event: 'skip_ignored' });
++        return 'Nothing is playing.';
++      }
++      try {
++        await this.fadeOutStop(fadeMs);
++      } catch (e) {
++        logger.warn('Fade-out during skip failed, forcing stop', { guildId: this.guildId, scope: 'control', requestId: ctx?.requestId, event: 'skip_fade_fail' }, e);
++        this.stop(ctx);
++      }
++      const next = this.queue.dequeue();
++      if (next) {
++        await this.play(next, ctx);
++        return `Skipped. Now playing: ${next.name}`;
++      }
++      return 'Skipped. Queue is empty.';
++    });
+   }
+ 
+   public toggleLoop(): string {
+-    // Allow toggling loop even if paused or idle, applies to next song if current is null
+-    // if (!this.currentSong || this.player.state.status === AudioPlayerStatus.Idle) {
+-    //    return 'No song is currently playing or ready to be looped.';
+-    // }
+     this.isLooping = !this.isLooping;
+     const status = this.isLooping ? 'enabled' : 'disabled';
+     const songName = this.currentSong
+       ? ` for **${this.currentSong.name}**`
+       : '';
+-    console.log(`[Guild ${this.guildId}] Looping set to ${this.isLooping}`);
++    logger.info(`Looping ${status}`, { guildId: this.guildId, scope: 'control', event: 'loop_toggle' });
+     return `Looping ${status}${songName}.`;
+   }
+ 
+@@ -418,67 +385,76 @@ export class GuildPlaybackManager {
+   public scheduleAloneDisconnect(): void {
+     const { autoLeaveAlone, aloneGraceSeconds } = ConfigStore.get();
+     if (!autoLeaveAlone) return;
+-    if (this.aloneTimer) return; // already scheduled
++    if (this.aloneTimer) return;
+     const ms = Math.max(5, aloneGraceSeconds) * 1000;
+-    this.aloneTimer = setTimeout(() => {
+-      this.fadeOutStop(1000).catch(() => this.stop());
++    this.aloneTimer = this.timers.setTimeout(() => {
++      logger.info('Auto-leaving because alone in channel', { guildId: this.guildId, scope: 'lifecycle', event: 'auto_leave' });
++      this.fadeOutStop(1000).catch((e) => {
++        logger.warn('Auto-leave fade failed, forcing stop', { guildId: this.guildId, scope: 'lifecycle', event: 'auto_leave_fade_fail' }, e);
++        this.stop();
++      });
+       this.leave(true);
+       this.aloneTimer = null;
+     }, ms);
+-    console.log(`[Guild ${this.guildId}] Scheduled auto-leave in ${ms}ms (alone).`);
++    logger.info(`Scheduled auto-leave when alone`, { guildId: this.guildId, scope: 'lifecycle', event: 'auto_leave_schedule' }, { delayMs: ms });
+   }
+ 
+   public cancelAloneDisconnect(): void {
+     if (this.aloneTimer) {
+-      clearTimeout(this.aloneTimer);
++      this.timers.clear(this.aloneTimer);
+       this.aloneTimer = null;
+-      console.log(`[Guild ${this.guildId}] Cancelled auto-leave (not alone).`);
++      logger.info('Cancelled auto-leave (not alone)', { guildId: this.guildId, scope: 'lifecycle', event: 'auto_leave_cancel' });
+     }
+   }
+ 
+-  // Internal cleanup method
+   private cleanup(destroyConnection = true): void {
+-    console.log(
+-      `[Guild ${this.guildId}] Cleaning up resources (destroyConnection: ${destroyConnection})...`,
+-    );
++    logger.info('Cleaning up resources', { guildId: this.guildId, scope: 'lifecycle', event: 'cleanup' }, { destroyConnection });
+     this.clearFade();
+     this.clearInactivityDisconnect();
++    this.timers.clearAll();
+     if (this.player) {
+       this.player.stop(true);
+     }
+-    // Always dispose of any custom streams
+     this.destroyPipeline();
+     if (this.subscription) {
+-      try { this.subscription.unsubscribe(); } catch {}
++      try { this.subscription.unsubscribe(); } catch (e) { logger.debug('Unsubscribe failed', { guildId: this.guildId, scope: 'lifecycle', event: 'unsubscribe_fail' }, e); }
+       this.subscription = null;
+     }
+     if (destroyConnection && this.connection) {
+-      // Check status before destroying
++      for (const { event, listener } of this.connectionListeners) {
++        this.connection.off(event as any, listener);
++      }
++      this.connectionListeners = [];
+       if (this.connection.state.status !== VoiceConnectionStatus.Destroyed) {
+         this.connection.destroy();
+       }
+-      this.connection = null; // Clear reference
++      this.connection = null;
++    }
++    if (this.watchdog) {
++      clearInterval(this.watchdog);
++      this.watchdog = null;
+     }
+ 
+     this.currentSong = null;
+-    // Keep player instance reusable unless destroying the whole manager
++    if (this.state.getState() !== 'DESTROYED') this.stateSafely('IDLE');
+   }
+ 
+   public destroy(): void {
+-    console.log(`[Guild ${this.guildId}] Destroying Playback Manager.`);
+-    this.cleanup(true); // Ensure connection is destroyed
+-    this.isLooping = false; // Reset on full destroy
+-    // Player has no explicit destroy, rely on garbage collection
++    logger.info('Destroying playback manager', { guildId: this.guildId, scope: 'lifecycle', event: 'destroy' });
++    this.cleanup(true);
++    this.isLooping = false;
++    this.stateSafely('DESTROYED');
+   }
+ 
+-  // Apply updated config to running player
+   public applyConfig(): void {
+     const { maxMissedFrames } = ConfigStore.get();
+     try {
+-      // Adjust tolerance without rebuilding the player
+       // @ts-ignore accessing behaviors directly
+       this.player.behaviors.maxMissedFrames = maxMissedFrames;
+-    } catch {}
++      logger.info('Updated maxMissedFrames', { guildId: this.guildId, scope: 'config', event: 'config_update' }, { maxMissedFrames });
++    } catch (e) {
++      logger.warn('Failed to update maxMissedFrames on player', { guildId: this.guildId, scope: 'config', event: 'config_update_fail' }, e);
++    }
+   }
+ 
+   public isLoopEnabled(): boolean {
+@@ -489,7 +465,7 @@ export class GuildPlaybackManager {
+     this.isLooping = enabled;
+     const status = this.isLooping ? 'enabled' : 'disabled';
+     const songName = this.currentSong ? ` for **${this.currentSong.name}**` : '';
+-    console.log(`[Guild ${this.guildId}] Looping set to ${this.isLooping}`);
++    logger.info(`Looping set to ${status}`, { guildId: this.guildId, scope: 'control', event: 'loop_set' });
+     return `Looping ${status}${songName}.`;
+   }
+ 
+@@ -515,7 +491,7 @@ export class GuildPlaybackManager {
+     const stepMs = durationMs / steps;
+     const delta = (to - from) / steps;
+     let current = from;
+-    return new Promise((resolve) => {
++    await new Promise<void>((resolve) => {
+       this.fadeInterval = setInterval(() => {
+         current += delta;
+         const reached = delta >= 0 ? current >= to : current <= to;
+@@ -543,11 +519,14 @@ export class GuildPlaybackManager {
+ 
+   public startSleepTimer(durationMs: number, fadeOutMs = 2000): string {
+     if (this.sleepTimeout) {
+-      clearTimeout(this.sleepTimeout);
++      this.timers.clear(this.sleepTimeout);
+       this.sleepTimeout = null;
+     }
+-    this.sleepTimeout = setTimeout(() => {
+-      this.fadeOutStop(fadeOutMs).catch(() => this.stop());
++    this.sleepTimeout = this.timers.setTimeout(() => {
++      this.fadeOutStop(fadeOutMs).catch((e) => {
++        logger.warn('Sleep timer fade failed, forcing stop', { guildId: this.guildId, scope: 'sleep', event: 'sleep_fade_fail' }, e);
++        this.stop();
++      });
+       this.leave(true);
+     }, durationMs);
+     return `Sleep timer set for ${(durationMs / 60000).toFixed(1)} minutes.`;
+@@ -555,10 +534,32 @@ export class GuildPlaybackManager {
+ 
+   public cancelSleepTimer(): string {
+     if (this.sleepTimeout) {
+-      clearTimeout(this.sleepTimeout);
++      this.timers.clear(this.sleepTimeout);
+       this.sleepTimeout = null;
+       return 'Sleep timer cancelled.';
+     }
+     return 'No sleep timer was set.';
+   }
++
++  private startWatchdog(): void {
++    if (this.watchdog) return;
++    this.watchdog = setInterval(() => {
++      if (!this.connection) return;
++      const status = this.connection.state.status;
++      if (status === VoiceConnectionStatus.Destroyed) {
++        logger.warn('Watchdog detected destroyed connection, cleaning up', { guildId: this.guildId, scope: 'watchdog', event: 'destroyed_detected' });
++        this.cleanup(false);
++      }
++    }, 60_000);
++  }
++
++  private stateSafely(next: PlaybackState): void {
++    try {
++      if (this.state.getState() !== 'DESTROYED') {
++        this.state.transition(next);
++      }
++    } catch (e) {
++      logger.warn(`Invalid state transition`, { guildId: this.guildId, scope: 'state', event: 'invalid_transition' }, { from: this.state.getState(), to: next, error: (e as Error).message });
++    }
++  }
+ }

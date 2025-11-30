@@ -4,6 +4,8 @@ import {
 } from 'discord.js';
 import type { Command } from '../types';
 import type { GuildPlaybackManager } from '../lib/GuildPlaybackManager';
+import { logger } from '../utils/logger';
+import type { LogContext } from '../utils/logger';
 
 export default {
   data: new SlashCommandBuilder()
@@ -16,15 +18,13 @@ export default {
     interaction: ChatInputCommandInteraction,
     manager: GuildPlaybackManager,
   ) {
+    const ctx: LogContext = { requestId: (interaction as any).requestId };
     try {
-      manager.leave();
+      manager.leave(false, { requestId: ctx.requestId });
       // Use reply
       await interaction.reply({ content: 'Left the voice channel.' });
     } catch (error: any) {
-      console.error(
-        `[Command Leave Error] Guild ${interaction.guildId}: ${error.message}`,
-      );
-      // Use reply
+      logger.error(`[Command Leave Error] ${error.message}`, { guildId: interaction.guildId ?? undefined, command: 'leave', scope: 'command', requestId: ctx.requestId }, error);
       await interaction
         .reply({
           content: `An error occurred: ${
@@ -32,7 +32,7 @@ export default {
           }`,
           ephemeral: true,
         })
-        .catch(() => {});
+        .catch((e) => logger.error('Failed to reply in leave command', { guildId: interaction.guildId ?? undefined, command: 'leave', scope: 'command', requestId: ctx.requestId }, e));
     }
   },
 } as Command;

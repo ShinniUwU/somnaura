@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { logger } from '../utils/logger';
 
 export type VoiceConfig = {
   opusBitrate: number; // bps
@@ -27,7 +28,7 @@ const DEFAULTS: VoiceConfig = {
   aloneGraceSeconds: 60,
 };
 
-const CONFIG_PATH = path.resolve(process.cwd(), 'config.json');
+let CONFIG_PATH = path.resolve(process.cwd(), 'config.json');
 
 let cache: VoiceConfig = { ...DEFAULTS };
 
@@ -84,7 +85,8 @@ function load(): void {
       };
     }
   } catch (e) {
-    // Keep defaults on error
+    // Keep defaults on error, but surface for visibility
+    logger.warn('Failed to load config.json, using defaults.', { scope: 'config' }, e);
   }
 }
 
@@ -92,7 +94,7 @@ function save(): void {
   try {
     fs.writeFileSync(CONFIG_PATH, JSON.stringify(cache, null, 2), 'utf8');
   } catch {
-    // ignore write errors (ephemeral FS, permissions, etc.)
+    logger.warn('Failed to persist config.json (ephemeral FS or permissions).', { scope: 'config' });
   }
 }
 
@@ -123,5 +125,11 @@ export const ConfigStore = {
   },
   path(): string {
     return CONFIG_PATH;
+  },
+  // For tests only
+  setPathForTest(p: string): void {
+    CONFIG_PATH = p;
+    cache = { ...DEFAULTS };
+    load();
   },
 };

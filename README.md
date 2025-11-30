@@ -38,6 +38,7 @@ System requirements for crystal-clear audio:
 
 - FFmpeg installed on the host/container with libopus enabled (common on Debian/Ubuntu). Check via `/voice-report`.
 - Optional but strongly recommended: `@discordjs/opus` (bundled via prism-media) and `libsodium` for fast encryption. See below.
+- Building native modules requires `python3`, `make`, and a C++ toolchain. The Dockerfile installs these along with FFmpeg.
 
 Runtime tuning (optional):
 
