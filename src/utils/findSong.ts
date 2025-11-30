@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import Fuse from 'fuse.js';
 import type { Song } from '../types';
 
-const AUDIO_RE = /\.(mp3|ogg|wav|flac|m4a|aac)$/i;
+const AUDIO_RE = /\.(mp3|ogg|wav|flac|m4a|aac|opus)$/i;
 
 function candidateDirs(): string[] {
   // Prefer root 'songs/' but also support legacy 'src/songs/'

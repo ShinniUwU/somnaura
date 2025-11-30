@@ -35,23 +35,52 @@ function clamp(num: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, num));
 }
 
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value);
+}
+
 function load(): void {
   try {
     if (fs.existsSync(CONFIG_PATH)) {
       const raw = fs.readFileSync(CONFIG_PATH, 'utf8');
       const parsed = JSON.parse(raw);
+      const parsedBitrate = Number(parsed.opusBitrate);
+      const parsedPlp = Number(parsed.opusPlp);
+      const parsedMaxMissed = Number(parsed.maxMissedFrames);
+      const parsedInactivity = Number(parsed.inactivityMinutes);
+      const parsedMicroFade = Number(parsed.microFadeMs);
+      const parsedAloneGrace = Number(parsed.aloneGraceSeconds);
       cache = {
-        opusBitrate: Number(parsed.opusBitrate) || DEFAULTS.opusBitrate,
-        opusFec: Boolean(parsed.opusFec),
-        opusPlp: clamp(Number(parsed.opusPlp) || DEFAULTS.opusPlp, 0, 1),
-        maxMissedFrames:
-          Number(parsed.maxMissedFrames) || DEFAULTS.maxMissedFrames,
-        inactivityMinutes:
-          Math.max(0, Number(parsed.inactivityMinutes) || DEFAULTS.inactivityMinutes),
-        preferOpusDemux: typeof parsed.preferOpusDemux === 'boolean' ? parsed.preferOpusDemux : DEFAULTS.preferOpusDemux,
-        microFadeMs: Math.max(0, Number(parsed.microFadeMs) || DEFAULTS.microFadeMs),
-        autoLeaveAlone: typeof parsed.autoLeaveAlone === 'boolean' ? parsed.autoLeaveAlone : DEFAULTS.autoLeaveAlone,
-        aloneGraceSeconds: Math.max(5, Number(parsed.aloneGraceSeconds) || DEFAULTS.aloneGraceSeconds),
+        opusBitrate: isFiniteNumber(parsedBitrate)
+          ? parsedBitrate
+          : DEFAULTS.opusBitrate,
+        opusFec:
+          typeof parsed.opusFec === 'boolean'
+            ? parsed.opusFec
+            : DEFAULTS.opusFec,
+        opusPlp: isFiniteNumber(parsedPlp)
+          ? clamp(parsedPlp, 0, 1)
+          : DEFAULTS.opusPlp,
+        maxMissedFrames: isFiniteNumber(parsedMaxMissed)
+          ? parsedMaxMissed
+          : DEFAULTS.maxMissedFrames,
+        inactivityMinutes: isFiniteNumber(parsedInactivity)
+          ? Math.max(0, parsedInactivity)
+          : DEFAULTS.inactivityMinutes,
+        preferOpusDemux:
+          typeof parsed.preferOpusDemux === 'boolean'
+            ? parsed.preferOpusDemux
+            : DEFAULTS.preferOpusDemux,
+        microFadeMs: isFiniteNumber(parsedMicroFade)
+          ? Math.max(0, parsedMicroFade)
+          : DEFAULTS.microFadeMs,
+        autoLeaveAlone:
+          typeof parsed.autoLeaveAlone === 'boolean'
+            ? parsed.autoLeaveAlone
+            : DEFAULTS.autoLeaveAlone,
+        aloneGraceSeconds: isFiniteNumber(parsedAloneGrace)
+          ? Math.max(5, parsedAloneGrace)
+          : DEFAULTS.aloneGraceSeconds,
       };
     }
   } catch (e) {

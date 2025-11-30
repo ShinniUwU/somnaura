@@ -32,6 +32,7 @@ export class GuildPlaybackManager {
   private static readonly DEFAULT_INACTIVITY_TIMEOUT_MS = 300_000; // 5 minutes
   private sleepTimeout: ReturnType<typeof setTimeout> | null = null;
   private aloneTimer: ReturnType<typeof setTimeout> | null = null;
+  private fadeInterval: ReturnType<typeof setInterval> | null = null;
   private queue: Song[] = [];
 
   // No fade timers
@@ -241,7 +242,7 @@ export class GuildPlaybackManager {
       // Build resource using library defaults for compatibility and stability
       const resource: AudioResource = createAudioResource(songToPlay.path, {
         metadata: songToPlay,
-        inlineVolume: false,
+        inlineVolume: true,
       });
       // Apply encoder tuning when available
       if (resource.encoder) {
@@ -250,15 +251,23 @@ export class GuildPlaybackManager {
         try { resource.encoder.setFEC(Boolean(opusFec)); } catch {}
         try { resource.encoder.setPLP(Math.max(0, Math.min(1, opusPlp))); } catch {}
       }
+      // Gentle fade-in to avoid pops at start
+      const { microFadeMs } = ConfigStore.get();
+      if (resource.volume) {
+        resource.volume.setVolume(Math.max(0, microFadeMs > 0 ? 0 : 1));
+      }
       this.player.play(resource);
       this.resource = resource;
       this.currentSong = songToPlay;
+      if (resource.volume && microFadeMs > 0) {
+        this.startFade(0, 1, microFadeMs).catch(() => {});
+      }
       return `Now playing: **${songToPlay.name}**`;
     } catch (playError) {
       console.error(`[Guild ${this.guildId}] Tuned pipeline failed, falling back:`, playError);
       // Fallback to library defaults if our tuned pipeline errors
       try {
-        const resource = createAudioResource(songToPlay.path, { metadata: songToPlay, inlineVolume: false });
+        const resource = createAudioResource(songToPlay.path, { metadata: songToPlay, inlineVolume: true });
         // If prism chose an internal Opus encoder, apply options when possible
         // Note: When FFmpeg(libopus) path is selected internally, encoder may be undefined
         if (resource.encoder) {
@@ -267,9 +276,16 @@ export class GuildPlaybackManager {
           try { resource.encoder.setFEC(Boolean(opusFec)); } catch {}
           try { resource.encoder.setPLP(opusPlp); } catch {}
         }
+        const { microFadeMs } = ConfigStore.get();
+        if (resource.volume) {
+          resource.volume.setVolume(Math.max(0, microFadeMs > 0 ? 0 : 1));
+        }
         this.player.play(resource);
         this.resource = resource;
         this.currentSong = songToPlay;
+        if (resource.volume && microFadeMs > 0) {
+          this.startFade(0, 1, microFadeMs).catch(() => {});
+        }
         return `Now playing: **${songToPlay.name}**`;
       } catch (fallbackError) {
         console.error(
@@ -288,6 +304,7 @@ export class GuildPlaybackManager {
   public stop(): void {
     if (this.player.state.status !== AudioPlayerStatus.Idle) {
       console.log(`[Guild ${this.guildId}] Stopping playback.`);
+      this.clearFade();
       this.player.stop(true);
       this.resource = null;
       this.currentSong = null; // Clear current song when stopped
@@ -424,6 +441,7 @@ export class GuildPlaybackManager {
     console.log(
       `[Guild ${this.guildId}] Cleaning up resources (destroyConnection: ${destroyConnection})...`,
     );
+    this.clearFade();
     this.clearInactivityDisconnect();
     if (this.player) {
       this.player.stop(true);
@@ -477,9 +495,51 @@ export class GuildPlaybackManager {
 
   public setVolume(_vol: number): string { return 'Volume control disabled.'; }
 
-  private startFade(_from: number, _to: number, _durationMs: number): void { /* no-op */ }
+  private clearFade(): void {
+    if (this.fadeInterval) {
+      clearInterval(this.fadeInterval);
+      this.fadeInterval = null;
+    }
+  }
 
-  public async fadeOutStop(_durationMs = 0): Promise<void> { this.stop(); }
+  private async startFade(from: number, to: number, durationMs: number): Promise<void> {
+    if (!this.resource || !this.resource.volume) return;
+    this.clearFade();
+    const vol = this.resource.volume;
+    if (durationMs <= 0) {
+      vol.setVolume(Math.max(0, to));
+      return;
+    }
+    vol.setVolume(Math.max(0, from));
+    const steps = Math.max(1, Math.round(durationMs / 50));
+    const stepMs = durationMs / steps;
+    const delta = (to - from) / steps;
+    let current = from;
+    return new Promise((resolve) => {
+      this.fadeInterval = setInterval(() => {
+        current += delta;
+        const reached = delta >= 0 ? current >= to : current <= to;
+        if (reached) {
+          vol.setVolume(Math.max(0, to));
+          this.clearFade();
+          resolve();
+          return;
+        }
+        vol.setVolume(Math.max(0, current));
+      }, stepMs);
+    });
+  }
+
+  public async fadeOutStop(durationMs = 0): Promise<void> {
+    if (this.resource?.volume) {
+      const currentVol =
+        typeof (this.resource.volume as any).volume === 'number'
+          ? (this.resource.volume as any).volume
+          : 1;
+      await this.startFade(currentVol, 0, durationMs);
+    }
+    this.stop();
+  }
 
   public startSleepTimer(durationMs: number, fadeOutMs = 2000): string {
     if (this.sleepTimeout) {

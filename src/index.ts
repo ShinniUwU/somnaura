@@ -130,17 +130,18 @@ client.on(Events.InteractionCreate, async (interaction) => {
       `Error executing command ${interaction.commandName} for guild ${interaction.guildId}:`,
       error,
     );
+    const content = 'There was an error while executing this command!';
     try {
-      // --- Reverted to ephemeral: true ---
-      const replyOptions = {
-        content: 'There was an error while executing this command!',
-        ephemeral: true,
-      };
-      if (interaction.replied || interaction.deferred) {
-        // Edit reply content only
-        await interaction.editReply({ content: replyOptions.content });
+      if (interaction.replied) {
+        await interaction.followUp({ content, ephemeral: true });
+      } else if (interaction.deferred) {
+        await interaction.editReply({ content });
+        // Send a private follow-up so errors are not leaked publicly
+        await interaction.followUp({ content, ephemeral: true }).catch(() => {});
+        // Try to remove the public placeholder if it exists
+        await interaction.deleteReply().catch(() => {});
       } else {
-        await interaction.reply(replyOptions);
+        await interaction.reply({ content, ephemeral: true });
       }
     } catch (replyError) {
       console.error(
