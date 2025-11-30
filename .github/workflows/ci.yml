@@ -7,14 +7,31 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
+
       - uses: oven-sh/setup-bun@v1
         with:
           bun-version: 1.1.32
+
+      # 🧠 Cache Bun dependencies for fast builds
+      - name: Setup cache
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/bun
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lockb') }}
+          restore-keys: |
+            bun-${{ runner.os }}-
+
+      # 🔥 Install without --frozen-lockfile so Bun can update lockfile version
       - name: Install dependencies
-        run: bun install --frozen-lockfile
+        run: bun install
+
+      # 🧪 Type-check
       - name: Type check
         run: bun x tsc -p tsconfig.json --noEmit
+
+      # 🧬 Run unit tests
       - name: Run tests
-        run: bun test
+        run: bun test --coverage
