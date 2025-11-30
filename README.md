@@ -16,6 +16,22 @@ bun build
 bun start
 ```
 
+Docker (optional):
+
+```bash
+# Build image
+docker build -t somnaura .
+
+# Run and mount your host songs folder (read-only)
+docker run -d --name somnaura \
+  -v "$(pwd)/songs:/app/songs:ro" \
+  -e BOT_TOKEN=your_token \
+  -e CLIENT_ID=your_client_id \
+  somnaura
+```
+
+The image includes FFmpeg and native build tooling. It copies any `songs/` you have at build time and also exposes `/app/songs` as a volume so you can hot-swap tracks by mounting your host folder without rebuilding.
+
 Note: This project is tuned to run smoothly on Bun — no build step required. Ensure FFmpeg is installed on your system (with libopus) and use `/voice-report` to verify the environment. If you ever hear artifacts, double‑check FFmpeg availability and try raising `max_missed_frames` in `/quality set`.
 
 System requirements for crystal-clear audio:
