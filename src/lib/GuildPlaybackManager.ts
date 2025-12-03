@@ -84,6 +84,10 @@ export class GuildPlaybackManager {
   private async handleIdle(resource: AudioResource | undefined): Promise<void> {
     const previous = resource?.metadata as Song | undefined;
     this.currentSong = null;
+    // Reset to READY so we can transition back to PLAYING when looping/queuing
+    if (this.state.canTransition('READY')) {
+      this.stateSafely('READY');
+    }
     if (this.isLooping && previous) {
       logger.info('Looping current song', { guildId: this.guildId, scope: 'idle', event: 'loop' }, { song: previous.name });
       try {
@@ -108,7 +112,6 @@ export class GuildPlaybackManager {
     }
 
     this.scheduleInactivityDisconnect();
-    this.stateSafely('READY');
   }
 
   private scheduleInactivityDisconnect(): void {
