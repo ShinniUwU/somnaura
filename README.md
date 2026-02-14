@@ -5,6 +5,8 @@ Somnaura is a minimalist Discord music bot written in TypeScript. Instead of fet
 Quick start (Bun):
 
 ```bash
+cp .env.example .env
+# edit .env and set BOT_TOKEN + CLIENT_ID
 bun install
 bun dev   # run directly in TypeScript
 ```

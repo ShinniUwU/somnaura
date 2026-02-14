@@ -3,6 +3,31 @@ import type { Command } from '../types';
 import type { GuildPlaybackManager } from '../lib/GuildPlaybackManager';
 import { findSong, getAllSongNames } from '../utils/findSong';
 
+const DISCORD_MESSAGE_LIMIT = 2000;
+
+function formatQueueMessage(items: Array<{ name: string }>): string {
+  const header = 'In queue:\n';
+  const lines = items.map((s, i) => `${i + 1}. ${s.name}`);
+  let content = header;
+
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = `${lines[i]}\n`;
+    if ((content + line).length > DISCORD_MESSAGE_LIMIT) {
+      const remaining = lines.length - i;
+      const suffix = `\n...and ${remaining} more`;
+      const base = content.trimEnd();
+      if (base.length + suffix.length <= DISCORD_MESSAGE_LIMIT) {
+        return `${base}${suffix}`;
+      }
+      const truncatedBase = base.slice(0, Math.max(0, DISCORD_MESSAGE_LIMIT - suffix.length));
+      return `${truncatedBase}${suffix}`;
+    }
+    content += line;
+  }
+
+  return content.trimEnd();
+}
+
 export default {
   data: new SlashCommandBuilder()
     .setName('queue')
@@ -33,8 +58,7 @@ export default {
         await interaction.reply({ content: 'Queue is empty.', ephemeral: true });
         return;
       }
-      const names = items.map((s, i) => `${i + 1}. ${s.name}`).join('\n');
-      await interaction.reply({ content: `In queue:\n${names}` });
+      await interaction.reply({ content: formatQueueMessage(items) });
       return;
     }
     if (sub === 'clear') {
@@ -52,4 +76,3 @@ export default {
     await interaction.respond(choices);
   },
 } as Command;
-

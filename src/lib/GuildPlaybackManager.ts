@@ -42,7 +42,12 @@ export class GuildPlaybackManager {
   private readonly joinLock = new AsyncLock();
   private readonly state = new PlaybackStateMachine();
   private readonly timers = new TimerManager();
-  private connectionListeners: Array<{ event: VoiceConnectionStatus | 'error'; listener: (...args: any[]) => void }> = [];
+  private connectionListeners: Array<{
+    connection: VoiceConnection;
+    event: VoiceConnectionStatus | 'error';
+    listener: (...args: any[]) => void;
+  }> = [];
+  private suppressLoopOnce = false;
   private watchdog: ReturnType<typeof setInterval> | null = null;
 
   constructor(guildId: string, onError: VoiceErrorCallback) {
@@ -50,6 +55,29 @@ export class GuildPlaybackManager {
     this.player = this.createPlayer();
     this.onErrorCallback = onError;
     logger.info('Playback Manager created', { guildId, scope: 'manager', event: 'manager_created' });
+  }
+
+  private bindConnectionListener(
+    connection: VoiceConnection,
+    event: VoiceConnectionStatus | 'error',
+    listener: (...args: any[]) => void,
+  ): void {
+    connection.on(event as any, listener);
+    this.connectionListeners.push({ connection, event, listener });
+  }
+
+  private detachConnectionListeners(connection?: VoiceConnection): void {
+    const remaining: typeof this.connectionListeners = [];
+    for (const item of this.connectionListeners) {
+      if (!connection || item.connection === connection) {
+        try {
+          item.connection.off(item.event as any, item.listener);
+        } catch {}
+      } else {
+        remaining.push(item);
+      }
+    }
+    this.connectionListeners = remaining;
   }
 
   private createPlayer(): AudioPlayer {
@@ -88,7 +116,9 @@ export class GuildPlaybackManager {
     if (this.state.canTransition('READY')) {
       this.stateSafely('READY');
     }
-    if (this.isLooping && previous) {
+    const shouldLoop = this.isLooping && Boolean(previous) && !this.suppressLoopOnce;
+    if (this.suppressLoopOnce) this.suppressLoopOnce = false;
+    if (shouldLoop && previous) {
       logger.info('Looping current song', { guildId: this.guildId, scope: 'idle', event: 'loop' }, { song: previous.name });
       try {
         await this.play(previous);
@@ -168,16 +198,14 @@ export class GuildPlaybackManager {
         logger.warn('Connection destroyed', { guildId: this.guildId, scope: 'join', requestId: ctx?.requestId, event: 'destroyed' });
         this.cleanup(false);
       };
-      newConnection.on(VoiceConnectionStatus.Destroyed, onDestroyed);
-      this.connectionListeners.push({ event: VoiceConnectionStatus.Destroyed, listener: onDestroyed });
+      this.bindConnectionListener(newConnection, VoiceConnectionStatus.Destroyed, onDestroyed);
 
       const onError = (error: Error) => {
         logger.error(`Voice connection error: ${error.message}`, { guildId: this.guildId, scope: 'join', requestId: ctx?.requestId, event: 'connection_error' }, error);
         this.leave(true);
         this.onErrorCallback(error);
       };
-      newConnection.on('error', onError);
-      this.connectionListeners.push({ event: 'error', listener: onError });
+      this.bindConnectionListener(newConnection, 'error', onError);
 
       const onDisconnected = async () => {
         logger.warn('Connection disconnected, attempting recovery', { guildId: this.guildId, scope: 'join', requestId: ctx?.requestId, event: 'disconnected' });
@@ -194,8 +222,7 @@ export class GuildPlaybackManager {
           }
         }
       };
-      newConnection.on(VoiceConnectionStatus.Disconnected, onDisconnected);
-      this.connectionListeners.push({ event: VoiceConnectionStatus.Disconnected, listener: onDisconnected });
+      this.bindConnectionListener(newConnection, VoiceConnectionStatus.Disconnected, onDisconnected);
 
       try {
         await entersState(newConnection, VoiceConnectionStatus.Ready, 15_000);
@@ -207,6 +234,7 @@ export class GuildPlaybackManager {
         this.clearInactivityDisconnect();
       } catch (error) {
         logger.error('Failed to become ready in target channel', { guildId: this.guildId, scope: 'join', requestId: ctx?.requestId, event: 'join_failed' }, error);
+        this.detachConnectionListeners(newConnection);
         if (newConnection.state.status !== VoiceConnectionStatus.Destroyed) {
           newConnection.destroy();
         }
@@ -324,17 +352,16 @@ export class GuildPlaybackManager {
         logger.warn('Skip ignored: no track playing', { guildId: this.guildId, scope: 'control', requestId: ctx?.requestId, event: 'skip_ignored' });
         return 'Nothing is playing.';
       }
+      const queuedNextName = this.queue.list()[0]?.name;
+      // Ensure explicit skip does not instantly re-loop the same track.
+      this.suppressLoopOnce = true;
       try {
         await this.fadeOutStop(fadeMs);
       } catch (e) {
         logger.warn('Fade-out during skip failed, forcing stop', { guildId: this.guildId, scope: 'control', requestId: ctx?.requestId, event: 'skip_fade_fail' }, e);
         this.stop(ctx);
       }
-      const next = this.queue.dequeue();
-      if (next) {
-        await this.play(next, ctx);
-        return `Skipped. Now playing: ${next.name}`;
-      }
+      if (queuedNextName) return `Skipped. Next up: ${queuedNextName}`;
       return 'Skipped. Queue is empty.';
     });
   }
@@ -392,12 +419,17 @@ export class GuildPlaybackManager {
     const ms = Math.max(5, aloneGraceSeconds) * 1000;
     this.aloneTimer = this.timers.setTimeout(() => {
       logger.info('Auto-leaving because alone in channel', { guildId: this.guildId, scope: 'lifecycle', event: 'auto_leave' });
-      this.fadeOutStop(1000).catch((e) => {
-        logger.warn('Auto-leave fade failed, forcing stop', { guildId: this.guildId, scope: 'lifecycle', event: 'auto_leave_fade_fail' }, e);
-        this.stop();
-      });
-      this.leave(true);
       this.aloneTimer = null;
+      void (async () => {
+        try {
+          await this.fadeOutStop(1000);
+        } catch (e) {
+          logger.warn('Auto-leave fade failed, forcing stop', { guildId: this.guildId, scope: 'lifecycle', event: 'auto_leave_fade_fail' }, e);
+          this.stop();
+        } finally {
+          this.leave(true);
+        }
+      })();
     }, ms);
     logger.info(`Scheduled auto-leave when alone`, { guildId: this.guildId, scope: 'lifecycle', event: 'auto_leave_schedule' }, { delayMs: ms });
   }
@@ -423,14 +455,14 @@ export class GuildPlaybackManager {
       try { this.subscription.unsubscribe(); } catch (e) { logger.debug('Unsubscribe failed', { guildId: this.guildId, scope: 'lifecycle', event: 'unsubscribe_fail' }, e); }
       this.subscription = null;
     }
+    this.detachConnectionListeners();
     if (destroyConnection && this.connection) {
-      for (const { event, listener } of this.connectionListeners) {
-        this.connection.off(event as any, listener);
-      }
-      this.connectionListeners = [];
       if (this.connection.state.status !== VoiceConnectionStatus.Destroyed) {
         this.connection.destroy();
       }
+      this.connection = null;
+    }
+    if (this.connection?.state.status === VoiceConnectionStatus.Destroyed) {
       this.connection = null;
     }
     if (this.watchdog) {
@@ -439,7 +471,8 @@ export class GuildPlaybackManager {
     }
 
     this.currentSong = null;
-    if (this.state.getState() !== 'DESTROYED') this.stateSafely('IDLE');
+    const currentState = this.state.getState();
+    if (currentState !== 'DESTROYED' && currentState !== 'IDLE') this.stateSafely('IDLE');
   }
 
   public destroy(): void {
@@ -526,11 +559,17 @@ export class GuildPlaybackManager {
       this.sleepTimeout = null;
     }
     this.sleepTimeout = this.timers.setTimeout(() => {
-      this.fadeOutStop(fadeOutMs).catch((e) => {
-        logger.warn('Sleep timer fade failed, forcing stop', { guildId: this.guildId, scope: 'sleep', event: 'sleep_fade_fail' }, e);
-        this.stop();
-      });
-      this.leave(true);
+      this.sleepTimeout = null;
+      void (async () => {
+        try {
+          await this.fadeOutStop(fadeOutMs);
+        } catch (e) {
+          logger.warn('Sleep timer fade failed, forcing stop', { guildId: this.guildId, scope: 'sleep', event: 'sleep_fade_fail' }, e);
+          this.stop();
+        } finally {
+          this.leave(true);
+        }
+      })();
     }, durationMs);
     return `Sleep timer set for ${(durationMs / 60000).toFixed(1)} minutes.`;
   }
