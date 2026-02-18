@@ -4,7 +4,8 @@ import fs from 'fs';
 import path from 'path';
 import { pathToFileURL, fileURLToPath } from 'node:url';
 import { Collection } from 'discord.js';
-import type { Command } from '../types'; // Use type import
+import type { Command } from '../types';
+import { logger } from '../utils/logger';
 
 export async function registerCommands(
   commands: Command[],
@@ -15,17 +16,13 @@ export async function registerCommands(
   const commandData = commands.map((cmd) => cmd.data.toJSON());
 
   try {
-    console.log(
-      `Started refreshing ${commands.length} application (/) commands.`,
-    );
+    logger.info(`Refreshing ${commands.length} application (/) commands`, { scope: 'boot', event: 'commands_register' });
     const data: any = await rest.put(Routes.applicationCommands(clientId), {
       body: commandData,
     });
-    console.log(
-      `Successfully reloaded ${data.length} application (/) commands.`,
-    );
+    logger.info(`Reloaded ${data.length} application (/) commands`, { scope: 'boot', event: 'commands_registered' });
   } catch (error) {
-    console.error('Error registering commands:', error);
+    logger.error('Error registering commands', { scope: 'boot', event: 'commands_register_fail' }, error);
   }
 }
 
@@ -35,7 +32,7 @@ export async function loadCommands(
   const commands = new Collection<string, Command>();
   const baseDir = path.dirname(fileURLToPath(import.meta.url));
   const commandPath = path.resolve(baseDir, commandDir);
-  console.log(`Loading commands from: ${commandPath}`);
+  logger.info(`Loading commands`, { scope: 'boot', event: 'commands_load' }, { commandPath });
 
   try {
     const commandFiles = fs
@@ -49,21 +46,19 @@ export async function loadCommands(
         const commandModule = await import(url);
         const command = (commandModule.default || commandModule) as Command;
         if (command && command.data && typeof command.execute === 'function') {
-          console.log(`-> Loaded command: ${command.data.name}`);
+          logger.info(`Loaded command: ${command.data.name}`, { scope: 'boot', event: 'command_loaded' });
           commands.set(command.data.name, command);
         } else {
-          console.warn(
-            `[WARNING] The command at ${filePath} is missing a required "data" or "execute" property, or structure is incorrect.`,
-          );
+          logger.warn(`Command at ${filePath} is missing "data" or "execute"`, { scope: 'boot', event: 'command_invalid' });
         }
       } catch (error) {
-        console.error(`Error loading command file ${filePath}:`, error);
+        logger.error(`Error loading command file ${filePath}`, { scope: 'boot', event: 'command_load_fail' }, error);
       }
     }
   } catch (error) {
-    console.error(`Error reading commands directory ${commandPath}:`, error);
+    logger.error(`Error reading commands directory ${commandPath}`, { scope: 'boot', event: 'commands_dir_fail' }, error);
   }
 
-  console.log(`Loaded ${commands.size} commands successfully.`);
+  logger.info(`Loaded ${commands.size} commands`, { scope: 'boot', event: 'commands_loaded' });
   return commands;
 }

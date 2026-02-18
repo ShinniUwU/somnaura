@@ -153,8 +153,9 @@ client.on(Events.InteractionCreate, async (interaction) => {
         await interaction.reply({ content, ephemeral: true });
       }
     } catch (replyError) {
-      console.error(
-        `Failed to send error reply for command ${interaction.commandName} in guild ${interaction.guildId}:`,
+      logger.error(
+        `Failed to send error reply for command ${interaction.commandName}`,
+        { command: interaction.commandName, guildId: interaction.guildId ?? undefined, scope: 'interaction' },
         replyError,
       );
     }
@@ -169,7 +170,8 @@ client.on(Events.VoiceStateUpdate, (oldState, newState) => {
   if (!manager) return;
   const channelId = manager.getChannelId();
   if (!channelId) return;
-  const channel = newState.guild.channels.cache.get(channelId);
+  const guild = newState.guild ?? oldState.guild;
+  const channel = guild?.channels.cache.get(channelId);
   if (!channel || !('isVoiceBased' in channel) || !(channel as any).isVoiceBased()) return;
   const members = (channel as any).members;
   const nonBots = members.filter((m: any) => !m.user?.bot);
@@ -184,16 +186,16 @@ client.on(Events.GuildDelete, (guild) => {
   if (mgr) {
     try { mgr.destroy(); } catch {}
     client.playbackManagers.delete(id);
-    console.log(`Destroyed playback manager for removed guild ${id}.`);
+    logger.info(`Destroyed playback manager for removed guild`, { guildId: id, scope: 'lifecycle', event: 'guild_removed' });
   }
 });
 
 // --- Graceful Shutdown ---
 const shutdown = () => {
-  console.log('Shutting down gracefully...');
+  logger.info('Shutting down gracefully', { scope: 'boot', event: 'shutdown' });
   client.playbackManagers.forEach((manager) => manager.destroy());
   client.destroy();
-  console.log('Client destroyed. Exiting.');
+  logger.info('Client destroyed, exiting', { scope: 'boot', event: 'exit' });
   process.exit(0);
 };
 process.on('SIGINT', shutdown);
@@ -202,4 +204,4 @@ process.on('SIGTERM', shutdown);
 // --- Login ---
 client.login(BOT_TOKEN);
 
-console.log('Makeshift bot refactor is starting...');
+logger.info('Bot is starting', { scope: 'boot', event: 'start' });

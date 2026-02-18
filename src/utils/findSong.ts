@@ -3,6 +3,7 @@ import path from 'path';
 import { fileURLToPath } from 'node:url';
 import Fuse from 'fuse.js';
 import type { Song } from '../types';
+import { logger } from './logger';
 
 const AUDIO_RE = /\.(mp3|ogg|wav|flac|m4a|aac|opus)$/i;
 
@@ -26,7 +27,7 @@ let fuse: Fuse<Song> | null = null;
 function loadSongs(): void {
   const dirs = candidateDirs().filter((p) => fs.existsSync(p));
   if (dirs.length === 0) {
-    console.error('Error: No songs directory found. Create ./songs or src/songs');
+    logger.error('No songs directory found. Create ./songs or src/songs', { scope: 'songs', event: 'no_songs_dir' });
   }
 
   try {
@@ -53,9 +54,9 @@ function loadSongs(): void {
       includeScore: true,
       threshold: 0.4,
     });
-    console.log(`Loaded ${songCache.length} songs from: ${dirs.join(', ')}`);
+    logger.info(`Loaded ${songCache.length} songs`, { scope: 'songs', event: 'songs_loaded' }, { dirs });
   } catch (error) {
-    console.error('Error loading songs:', error);
+    logger.error('Error loading songs', { scope: 'songs', event: 'load_error' }, error);
     songCache = [];
     fuse = null;
   }
@@ -72,10 +73,14 @@ export function findSong(query: string): Song | null {
   if (direct) return direct;
   const partial = songCache.find((s) => s.name.toLowerCase().includes(normalized));
   if (partial) return partial;
-  const results = fuse.search(q);
-  if (results.length > 0) {
-    console.log(`Query "${query}" matched "${results[0].item.name}"`);
-    return results[0].item;
+  try {
+    const results = fuse.search(q);
+    if (results.length > 0) {
+      logger.debug(`Fuzzy matched query`, { scope: 'songs', event: 'fuzzy_match' }, { query, matched: results[0].item.name });
+      return results[0].item;
+    }
+  } catch (e) {
+    logger.warn(`Fuzzy search failed for query`, { scope: 'songs', event: 'fuzzy_error' }, { query, error: (e as Error).message });
   }
   return null;
 }

@@ -302,12 +302,18 @@ export class GuildPlaybackManager {
     if (this.player.state.status !== AudioPlayerStatus.Idle) {
       logger.info('Stopping playback', { guildId: this.guildId, scope: 'control', requestId: ctx?.requestId, event: 'stop' });
       this.clearFade();
+      // Prevent handleIdle (which fires synchronously inside player.stop) from
+      // restarting the song via the loop path on an explicit stop call.
+      this.suppressLoopOnce = true;
       this.player.stop(true);
       this.resource = null;
       this.currentSong = null;
       this.destroyPipeline();
       this.scheduleInactivityDisconnect();
-      this.stateSafely('READY');
+      // handleIdle fires synchronously during player.stop() and already transitions
+      // to READY when old state was Playing. Only call here for the Paused case
+      // (oldState=Paused → handleIdle is skipped → state is still PLAYING).
+      if (this.state.canTransition('READY')) this.stateSafely('READY');
     } else {
       logger.debug('Stop requested but player already idle', { guildId: this.guildId, scope: 'control', requestId: ctx?.requestId, event: 'stop_ignored' });
     }
@@ -507,10 +513,16 @@ export class GuildPlaybackManager {
 
   public setVolume(_vol: number): string { return 'Volume control disabled.'; }
 
+  private fadeResolve: (() => void) | null = null;
+
   private clearFade(): void {
     if (this.fadeInterval) {
       clearInterval(this.fadeInterval);
       this.fadeInterval = null;
+    }
+    if (this.fadeResolve) {
+      this.fadeResolve();
+      this.fadeResolve = null;
     }
   }
 
@@ -528,13 +540,13 @@ export class GuildPlaybackManager {
     const delta = (to - from) / steps;
     let current = from;
     await new Promise<void>((resolve) => {
+      this.fadeResolve = resolve;
       this.fadeInterval = setInterval(() => {
         current += delta;
         const reached = delta >= 0 ? current >= to : current <= to;
         if (reached) {
           vol.setVolume(Math.max(0, to));
           this.clearFade();
-          resolve();
           return;
         }
         vol.setVolume(Math.max(0, current));
