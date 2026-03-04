@@ -185,63 +185,83 @@ export class GuildPlaybackManager {
         this.leave(true);
       }
 
-      logger.info(`Attempting to join ${channel.name}`, { guildId: this.guildId, scope: 'join', requestId: ctx?.requestId, event: 'join_attempt' });
-      this.stateSafely('JOINING');
-      const newConnection = joinVoiceChannel({
-        channelId: channel.id,
-        guildId: this.guildId,
-        adapterCreator: channel.guild.voiceAdapterCreator,
-        selfDeaf: true,
-      });
+      const MAX_ATTEMPTS = 3;
+      let lastError: unknown;
 
-      const onDestroyed = () => {
-        logger.warn('Connection destroyed', { guildId: this.guildId, scope: 'join', requestId: ctx?.requestId, event: 'destroyed' });
-        this.cleanup(false);
-      };
-      this.bindConnectionListener(newConnection, VoiceConnectionStatus.Destroyed, onDestroyed);
+      for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+        if (this.state.getState() === 'DESTROYED') {
+          throw new Error('Manager was destroyed during join.');
+        }
 
-      const onError = (error: Error) => {
-        logger.error(`Voice connection error: ${error.message}`, { guildId: this.guildId, scope: 'join', requestId: ctx?.requestId, event: 'connection_error' }, error);
-        this.leave(true);
-        this.onErrorCallback(error);
-      };
-      this.bindConnectionListener(newConnection, 'error', onError);
+        if (attempt > 1) {
+          logger.info(`Retrying join (attempt ${attempt}/${MAX_ATTEMPTS})`, { guildId: this.guildId, scope: 'join', requestId: ctx?.requestId, event: 'join_retry' });
+          await new Promise<void>((r) => setTimeout(r, 2_000));
+        } else {
+          logger.info(`Attempting to join ${channel.name}`, { guildId: this.guildId, scope: 'join', requestId: ctx?.requestId, event: 'join_attempt' });
+        }
 
-      const onDisconnected = async () => {
-        logger.warn('Connection disconnected, attempting recovery', { guildId: this.guildId, scope: 'join', requestId: ctx?.requestId, event: 'disconnected' });
-        try {
-          await Promise.race([
-            entersState(newConnection, VoiceConnectionStatus.Signalling, 5_000),
-            entersState(newConnection, VoiceConnectionStatus.Connecting, 5_000),
-          ]);
-          logger.info('Connection recovered after disconnect', { guildId: this.guildId, scope: 'join', requestId: ctx?.requestId, event: 'recovered' });
-        } catch (error) {
-          if (newConnection.state.status !== VoiceConnectionStatus.Destroyed) {
-            logger.warn('Connection permanently lost; cleaning up', { guildId: this.guildId, scope: 'join', requestId: ctx?.requestId, event: 'lost' }, error);
-            this.leave(true);
+        this.stateSafely('JOINING');
+        const newConnection = joinVoiceChannel({
+          channelId: channel.id,
+          guildId: this.guildId,
+          adapterCreator: channel.guild.voiceAdapterCreator,
+          selfDeaf: true,
+        });
+
+        const onDestroyed = () => {
+          logger.warn('Connection destroyed', { guildId: this.guildId, scope: 'join', requestId: ctx?.requestId, event: 'destroyed' });
+          this.cleanup(false);
+        };
+        this.bindConnectionListener(newConnection, VoiceConnectionStatus.Destroyed, onDestroyed);
+
+        const onError = (error: Error) => {
+          logger.error(`Voice connection error: ${error.message}`, { guildId: this.guildId, scope: 'join', requestId: ctx?.requestId, event: 'connection_error' }, error);
+          this.leave(true);
+          this.onErrorCallback(error);
+        };
+        this.bindConnectionListener(newConnection, 'error', onError);
+
+        const onDisconnected = async () => {
+          logger.warn('Connection disconnected, attempting recovery', { guildId: this.guildId, scope: 'join', requestId: ctx?.requestId, event: 'disconnected' });
+          try {
+            await Promise.race([
+              entersState(newConnection, VoiceConnectionStatus.Signalling, 5_000),
+              entersState(newConnection, VoiceConnectionStatus.Connecting, 5_000),
+            ]);
+            logger.info('Connection recovered after disconnect', { guildId: this.guildId, scope: 'join', requestId: ctx?.requestId, event: 'recovered' });
+          } catch (error) {
+            if (newConnection.state.status !== VoiceConnectionStatus.Destroyed) {
+              logger.warn('Connection permanently lost; cleaning up', { guildId: this.guildId, scope: 'join', requestId: ctx?.requestId, event: 'lost' }, error);
+              this.leave(true);
+            }
           }
-        }
-      };
-      this.bindConnectionListener(newConnection, VoiceConnectionStatus.Disconnected, onDisconnected);
+        };
+        this.bindConnectionListener(newConnection, VoiceConnectionStatus.Disconnected, onDisconnected);
 
-      try {
-        await entersState(newConnection, VoiceConnectionStatus.Ready, 15_000);
-        this.connection = newConnection;
-        this.subscription = this.connection.subscribe(this.player) ?? null;
-        this.stateSafely('READY');
-        logger.info(`Joined ${channel.name} and subscribed player`, { guildId: this.guildId, scope: 'join', requestId: ctx?.requestId, event: 'joined' });
-        this.startWatchdog();
-        this.clearInactivityDisconnect();
-      } catch (error) {
-        logger.error('Failed to become ready in target channel', { guildId: this.guildId, scope: 'join', requestId: ctx?.requestId, event: 'join_failed' }, error);
-        this.detachConnectionListeners(newConnection);
-        if (newConnection.state.status !== VoiceConnectionStatus.Destroyed) {
-          newConnection.destroy();
+        try {
+          await entersState(newConnection, VoiceConnectionStatus.Ready, 15_000);
+          this.connection = newConnection;
+          this.subscription = this.connection.subscribe(this.player) ?? null;
+          this.stateSafely('READY');
+          logger.info(`Joined ${channel.name} and subscribed player`, { guildId: this.guildId, scope: 'join', requestId: ctx?.requestId, event: 'joined' });
+          this.startWatchdog();
+          this.clearInactivityDisconnect();
+          return;
+        } catch (error) {
+          lastError = error;
+          logger.warn(`Join attempt ${attempt}/${MAX_ATTEMPTS} failed`, { guildId: this.guildId, scope: 'join', requestId: ctx?.requestId, event: 'join_attempt_failed' }, error);
+          this.detachConnectionListeners(newConnection);
+          if (newConnection.state.status !== VoiceConnectionStatus.Destroyed) {
+            newConnection.destroy();
+          }
+          this.connection = null;
+          const s = this.state.getState();
+          if (s !== 'IDLE' && s !== 'DESTROYED') this.stateSafely('IDLE');
         }
-        this.connection = null;
-        this.stateSafely('IDLE');
-        throw new Error('Failed to establish a stable voice connection.');
       }
+
+      logger.error('Failed to become ready in target channel after all attempts', { guildId: this.guildId, scope: 'join', requestId: ctx?.requestId, event: 'join_failed' }, lastError);
+      throw new Error('Failed to establish a stable voice connection.');
     });
   }
 
