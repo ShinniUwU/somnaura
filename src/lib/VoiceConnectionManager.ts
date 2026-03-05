@@ -78,21 +78,6 @@ export class VoiceConnectionManager {
         guildId: this.guildId,
         adapterCreator: channel.guild.voiceAdapterCreator,
         selfDeaf: true,
-        debug: true,
-      });
-
-      // Temporary: trace every state transition and internal debug to diagnose signalling issue
-      newConnection.on('stateChange' as any, (oldState: any, newState: any) => {
-        logger.info(`Voice state: ${oldState.status} → ${newState.status}`, { guildId: this.guildId, scope: 'debug', requestId: ctx?.requestId });
-        // Capture WS close code from the Networking object
-        if (newState.networking && newState.networking !== oldState.networking) {
-          newState.networking.once('close', (code: number) => {
-            logger.warn(`[voice-debug] WS closed code=${code}`, { guildId: this.guildId, scope: 'debug', requestId: ctx?.requestId });
-          });
-        }
-      });
-      newConnection.on('debug' as any, (message: string) => {
-        logger.debug(`[voice-debug] ${message}`, { guildId: this.guildId, scope: 'debug', requestId: ctx?.requestId });
       });
 
       this.bindConnectionListener(newConnection, VoiceConnectionStatus.Destroyed, () => {
