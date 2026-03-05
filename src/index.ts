@@ -37,6 +37,16 @@ const client = new Client({
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildVoiceStates],
 }) as Client;
 
+// Temporary: log raw voice gateway events to diagnose signalling issue
+client.ws.on('VOICE_SERVER_UPDATE' as any, (data: any) => {
+  logger.info('RAW VOICE_SERVER_UPDATE received', { guildId: data.guild_id, scope: 'debug' }, { endpoint: data.endpoint });
+});
+client.ws.on('VOICE_STATE_UPDATE' as any, (data: any) => {
+  if (data.user_id === CLIENT_ID) {
+    logger.info('RAW VOICE_STATE_UPDATE (self) received', { guildId: data.guild_id, scope: 'debug' }, { channel_id: data.channel_id });
+  }
+});
+
 // --- Initialize Collections ---
 client.commands = await loadCommands();
 client.playbackManagers = new Map<string, GuildPlaybackManager>();

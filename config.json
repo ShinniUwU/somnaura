@@ -1,0 +1,11 @@
+{
+  "opusBitrate": 80000,
+  "opusFec": false,
+  "opusPlp": 0.07,
+  "maxMissedFrames": 30,
+  "inactivityMinutes": 5,
+  "preferOpusDemux": true,
+  "microFadeMs": 12,
+  "autoLeaveAlone": true,
+  "aloneGraceSeconds": 60
+}
