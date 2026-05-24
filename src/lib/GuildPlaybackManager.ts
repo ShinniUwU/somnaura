@@ -364,11 +364,16 @@ export class GuildPlaybackManager {
   public applyConfig(): void {
     const { maxMissedFrames } = ConfigStore.get();
     try {
-      // @ts-ignore
-      this.player.behaviors.maxMissedFrames = maxMissedFrames;
+      (this.player as unknown as { behaviors: { maxMissedFrames: number } }).behaviors.maxMissedFrames = maxMissedFrames;
       logger.info('Updated maxMissedFrames', { guildId: this.guildId, scope: 'config', event: 'config_update' }, { maxMissedFrames });
     } catch (e) {
       logger.warn('Failed to update maxMissedFrames on player', { guildId: this.guildId, scope: 'config', event: 'config_update_fail' }, e);
+    }
+  }
+
+  public rescheduleInactivity(): void {
+    if (this.inactivityTimeout) {
+      this.scheduleInactivityDisconnect();
     }
   }
 

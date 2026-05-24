@@ -107,7 +107,7 @@ export const ConfigStore = {
   },
   set(newConfig: VoiceConfig): VoiceConfig {
     cache = {
-      opusBitrate: Math.round(newConfig.opusBitrate),
+      opusBitrate: clamp(Math.round(newConfig.opusBitrate), 16_000, 512_000),
       opusFec: Boolean(newConfig.opusFec),
       opusPlp: clamp(newConfig.opusPlp, 0, 1),
       maxMissedFrames: Math.max(1, Math.round(newConfig.maxMissedFrames)),

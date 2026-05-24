@@ -41,30 +41,41 @@ export default {
 
   async execute(interaction: ChatInputCommandInteraction, manager: GuildPlaybackManager) {
     const sub = interaction.options.getSubcommand();
-    if (sub === 'add') {
-      const q = interaction.options.get('query', true).value as string;
-      const song = findSong(q);
-      if (!song) {
-        await interaction.reply({ content: `No match for "${q}". Use /list.`, ephemeral: true });
+    try {
+      if (sub === 'add') {
+        const q = interaction.options.get('query', true).value as string;
+        const song = findSong(q);
+        if (!song) {
+          await interaction.reply({ content: `No match for "${q}". Use /list.`, ephemeral: true });
+          return;
+        }
+        const msg = manager.enqueue(song);
+        await interaction.reply({ content: msg });
         return;
       }
-      const msg = manager.enqueue(song);
-      await interaction.reply({ content: msg });
-      return;
-    }
-    if (sub === 'list') {
-      const items = manager.getQueue();
-      if (items.length === 0) {
-        await interaction.reply({ content: 'Queue is empty.', ephemeral: true });
+      if (sub === 'list') {
+        const items = manager.getQueue();
+        if (items.length === 0) {
+          await interaction.reply({ content: 'Queue is empty.', ephemeral: true });
+          return;
+        }
+        await interaction.reply({ content: formatQueueMessage(items) });
         return;
       }
-      await interaction.reply({ content: formatQueueMessage(items) });
-      return;
-    }
-    if (sub === 'clear') {
-      manager.clearQueue();
-      await interaction.reply({ content: 'Queue cleared.' });
-      return;
+      if (sub === 'clear') {
+        manager.clearQueue();
+        await interaction.reply({ content: 'Queue cleared.' });
+        return;
+      }
+    } catch (error) {
+      const msg = `Queue operation failed: ${(error as Error).message || 'Unknown error'}`;
+      try {
+        if (interaction.replied || interaction.deferred) {
+          await interaction.followUp({ content: msg, ephemeral: true });
+        } else {
+          await interaction.reply({ content: msg, ephemeral: true });
+        }
+      } catch {}
     }
   },
   async autocomplete(interaction) {

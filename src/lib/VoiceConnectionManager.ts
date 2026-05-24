@@ -179,7 +179,11 @@ export class VoiceConnectionManager {
     const remaining: typeof this.connectionListeners = [];
     for (const item of this.connectionListeners) {
       if (!connection || item.connection === connection) {
-        try { item.connection.off(item.event as any, item.listener); } catch {}
+        try {
+          item.connection.off(item.event as any, item.listener);
+        } catch (e) {
+          logger.debug('Failed to detach connection listener', { guildId: this.guildId, scope: 'lifecycle', event: 'listener_detach_fail' }, e);
+        }
       } else {
         remaining.push(item);
       }

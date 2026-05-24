@@ -36,7 +36,7 @@ export default {
         content: 'Could not determine your voice status.',
       });
     }
-    const voiceChannel = interaction.member.voice.channel;
+    const voiceChannel = interaction.member.voice?.channel ?? null;
 
     if (!isVoiceChannel(voiceChannel)) {
       return interaction.editReply({
@@ -89,8 +89,9 @@ export default {
         // Already deferred, so always edit
         await interaction.editReply(replyContent);
       } catch (replyError) {
-        console.error(
-          'Failed to send error reply on play command:',
+        logger.error(
+          'Failed to send error reply on play command',
+          { guildId: interaction.guildId ?? undefined, command: 'play', scope: 'command', requestId: ctx.requestId },
           replyError,
         );
       }

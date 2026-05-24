@@ -27,7 +27,7 @@ export default {
 
   async execute(
     interaction: ChatInputCommandInteraction,
-    _manager: GuildPlaybackManager,
+    manager: GuildPlaybackManager,
   ) {
     const sub = interaction.options.getSubcommand();
     if (sub === 'get') {
@@ -37,6 +37,7 @@ export default {
     }
     const minutes = interaction.options.get('minutes', true).value as number;
     const cfg = ConfigStore.update({ inactivityMinutes: Math.max(0, Math.min(120, minutes)) });
+    manager.rescheduleInactivity();
     await interaction.reply({ content: `Auto-disconnect set to ${cfg.inactivityMinutes} minute(s).`, ephemeral: true });
   },
 } as Command;

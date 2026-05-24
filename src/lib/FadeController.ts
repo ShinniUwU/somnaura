@@ -3,8 +3,10 @@ import type { AudioResource } from '@discordjs/voice';
 export class FadeController {
   private fadeInterval: ReturnType<typeof setInterval> | null = null;
   private fadeResolve: (() => void) | null = null;
+  private generation = 0;
 
   clearFade(): void {
+    this.generation++;
     if (this.fadeInterval) {
       clearInterval(this.fadeInterval);
       this.fadeInterval = null;
@@ -18,6 +20,7 @@ export class FadeController {
   async startFade(resource: AudioResource, from: number, to: number, durationMs: number): Promise<void> {
     if (!resource.volume) return;
     this.clearFade();
+    const myGen = this.generation;
     const vol = resource.volume;
     if (durationMs <= 0) {
       vol.setVolume(Math.max(0, to));
@@ -31,6 +34,7 @@ export class FadeController {
     await new Promise<void>((resolve) => {
       this.fadeResolve = resolve;
       this.fadeInterval = setInterval(() => {
+        if (this.generation !== myGen) return;
         current += delta;
         const reached = delta >= 0 ? current >= to : current <= to;
         if (reached) {

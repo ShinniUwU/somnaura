@@ -5,6 +5,8 @@ import {
   Events,
   Partials,
   MessageFlags,
+  type GuildMember,
+  type VoiceBasedChannel,
 } from 'discord.js';
 import dotenv from 'dotenv';
 import { GuildPlaybackManager } from './lib/GuildPlaybackManager';
@@ -173,9 +175,8 @@ client.on(Events.VoiceStateUpdate, (oldState, newState) => {
   if (!channelId) return;
   const guild = newState.guild ?? oldState.guild;
   const channel = guild?.channels.cache.get(channelId);
-  if (!channel || !('isVoiceBased' in channel) || !(channel as any).isVoiceBased()) return;
-  const members = (channel as any).members;
-  const nonBots = members.filter((m: any) => !m.user?.bot);
+  if (!channel?.isVoiceBased()) return;
+  const nonBots = (channel as VoiceBasedChannel).members.filter((m: GuildMember) => !m.user.bot);
   if (nonBots.size === 0) manager.scheduleAloneDisconnect();
   else manager.cancelAloneDisconnect();
 });
@@ -185,7 +186,11 @@ client.on(Events.GuildDelete, (guild) => {
   const id = guild.id;
   const mgr = client.playbackManagers.get(id);
   if (mgr) {
-    try { mgr.destroy(); } catch {}
+    try {
+      mgr.destroy();
+    } catch (e) {
+      logger.warn('Error destroying manager for removed guild', { guildId: id, scope: 'lifecycle', event: 'destroy_fail' }, e);
+    }
     client.playbackManagers.delete(id);
     logger.info(`Destroyed playback manager for removed guild`, { guildId: id, scope: 'lifecycle', event: 'guild_removed' });
   }

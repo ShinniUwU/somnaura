@@ -4,7 +4,7 @@ import {
 } from 'discord.js';
 import type { Command } from '../types';
 import type { GuildPlaybackManager } from '../lib/GuildPlaybackManager';
-import { ConfigStore } from '../lib/ConfigStore';
+import { ConfigStore, type VoiceConfig } from '../lib/ConfigStore';
 
 function fmt(): string {
   const c = ConfigStore.get();
@@ -67,7 +67,7 @@ export default {
     const plp = interaction.options.get('plp')?.value as number | undefined;
     const mmf = interaction.options.get('max_missed_frames')?.value as number | undefined;
 
-    const updates: any = {};
+    const updates: Partial<VoiceConfig> = {};
     if (typeof bitrate === 'number') updates.opusBitrate = bitrate;
     if (typeof fec === 'boolean') updates.opusFec = fec;
     if (typeof plp === 'number') updates.opusPlp = plp;

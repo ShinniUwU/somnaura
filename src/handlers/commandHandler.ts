@@ -17,10 +17,11 @@ export async function registerCommands(
 
   try {
     logger.info(`Refreshing ${commands.length} application (/) commands`, { scope: 'boot', event: 'commands_register' });
-    const data: any = await rest.put(Routes.applicationCommands(clientId), {
+    const data = await rest.put(Routes.applicationCommands(clientId), {
       body: commandData,
     });
-    logger.info(`Reloaded ${data.length} application (/) commands`, { scope: 'boot', event: 'commands_registered' });
+    const count = Array.isArray(data) ? data.length : '?';
+    logger.info(`Reloaded ${count} application (/) commands`, { scope: 'boot', event: 'commands_registered' });
   } catch (error) {
     logger.error('Error registering commands', { scope: 'boot', event: 'commands_register_fail' }, error);
   }
