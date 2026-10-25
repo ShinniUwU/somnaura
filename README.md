@@ -14,9 +14,10 @@ bun dev   # run directly in TypeScript
 For production:
 
 ```bash
-bun build
 bun start
 ```
+
+Bun runs the TypeScript directly, so there's nothing to compile. `bun run build` only type-checks.
 
 Docker (optional):
 
@@ -39,8 +40,8 @@ Note: This project is tuned to run smoothly on Bun — no build step required. E
 System requirements for crystal-clear audio:
 
 - FFmpeg installed on the host/container with libopus enabled (common on Debian/Ubuntu). Check via `/voice-report`.
-- Optional but strongly recommended: `@discordjs/opus` (bundled via prism-media) and `libsodium` for fast encryption. See below.
-- Building native modules requires `python3`, `make`, and a C++ toolchain. The Dockerfile installs these along with FFmpeg.
+- Opus encoding uses `opusscript` and encryption uses `libsodium-wrappers`. Both are plain dependencies installed by `bun install`, no native build needed.
+- The bot checks FFmpeg and the Opus encoder on startup and exits with a clear error if either is missing.
 
 Runtime tuning (optional):
 
@@ -63,16 +64,10 @@ Runtime quality control (no SSH):
 - Use `/quality set` to change `bitrate`, `fec`, `plp`, and `max_missed_frames` live. Settings persist to `config.json` and apply to the next track.
 - Use `/sleep start minutes:N [query:rain] [fadeout_ms:2000]` to loop a sound for N minutes and fade out automatically, or `/sleep cancel` to cancel.
 - Use `/rain [minutes:N]` as a shortcut to loop your rain file (and optionally set a sleep timer).
-- Use `/status` to see now playing, loop, and volume.
+- Use `/status` to see what's playing and whether loop is on.
 - Use `/pause` and `/resume` to control playback without stopping.
 - Use `/reload` to rescan the songs folder; `/random [filter:rain]` to pick a random track.
 
-Pre-encoding (optional, best performance):
+Audio files:
 
-For zero on-the-fly CPU cost, pre-encode your audio as 48kHz stereo Ogg/Opus. The bot will then demux-only, which is very light:
-
-```bash
-ffmpeg -i input.mp3 -c:a libopus -b:a 128k -frame_duration 20 -application audio -ar 48000 -ac 2 output.ogg
-```
-
-Place files in `songs/` (or `src/songs/`).
+Place files in `songs/` (or `src/songs/`). Supported formats: mp3, ogg, wav, flac, m4a, aac, opus. Every file is decoded by FFmpeg and re-encoded to Opus on the fly, which is what makes the fades and smooth loops possible.
