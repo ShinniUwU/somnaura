@@ -13,6 +13,7 @@ import { GuildPlaybackManager } from './lib/GuildPlaybackManager';
 import { loadCommands, registerCommands } from './handlers/commandHandler';
 import type { Command } from './types';
 import { logger } from './utils/logger';
+import { checkAudioDeps } from './utils/preflight';
 
 dotenv.config();
 
@@ -22,6 +23,12 @@ const CLIENT_ID = process.env.CLIENT_ID;
 
 if (!BOT_TOKEN || !CLIENT_ID) {
   logger.error('FATAL ERROR: BOT_TOKEN or CLIENT_ID is missing in .env file.', { scope: 'boot' });
+  process.exit(1);
+}
+
+const audioProblems = checkAudioDeps();
+if (audioProblems.length > 0) {
+  logger.error('FATAL ERROR: audio dependencies missing, playback would fail.', { scope: 'boot' }, { problems: audioProblems });
   process.exit(1);
 }
 // --- End Check ---

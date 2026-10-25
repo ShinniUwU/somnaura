@@ -1,4 +1,4 @@
-FROM oven/bun:1.1 AS base
+FROM oven/bun:1.4.2 AS base
 
 # System deps for FFmpeg + native modules (opus, sodium)
 RUN apt-get update \

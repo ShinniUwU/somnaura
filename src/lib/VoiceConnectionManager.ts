@@ -12,6 +12,8 @@ import type { PlaybackState } from './PlaybackStateMachine';
 
 type Context = Pick<LogContext, 'requestId'>;
 
+const VOICE_DEBUG = process.env.VOICE_DEBUG === '1';
+
 export class VoiceConnectionManager {
   private connection: VoiceConnection | null = null;
   private subscription: PlayerSubscription | null = null;
@@ -45,11 +47,17 @@ export class VoiceConnectionManager {
       this.connection.joinConfig.channelId === channel.id &&
       this.connection.state.status !== VoiceConnectionStatus.Destroyed
     ) {
-      if (this.connection.state.status === VoiceConnectionStatus.Ready && !this.subscription) {
-        logger.info('Re-subscribing player after reconnect', { guildId: this.guildId, scope: 'join', requestId: ctx?.requestId, event: 'resubscribe' });
-        this.subscription = this.connection.subscribe(this.player) ?? null;
+      try {
+        // Connection may be mid-reconnect (Signalling/Connecting); give it a moment before giving up on it
+        await entersState(this.connection, VoiceConnectionStatus.Ready, 5_000);
+        if (!this.subscription) {
+          logger.info('Re-subscribing player after reconnect', { guildId: this.guildId, scope: 'join', requestId: ctx?.requestId, event: 'resubscribe' });
+          this.subscription = this.connection.subscribe(this.player) ?? null;
+        }
+        return;
+      } catch {
+        logger.warn('Existing connection never became ready; rejoining', { guildId: this.guildId, scope: 'join', requestId: ctx?.requestId, event: 'stale_connection' }, { status: this.connection.state.status });
       }
-      return;
     }
 
     if (this.connection) {
@@ -78,7 +86,18 @@ export class VoiceConnectionManager {
         guildId: this.guildId,
         adapterCreator: channel.guild.voiceAdapterCreator,
         selfDeaf: true,
+        debug: VOICE_DEBUG,
       });
+
+      if (VOICE_DEBUG) {
+        // Includes DAVE (E2EE) handshake messages, which is where silent-playback bugs show up
+        newConnection.on('debug', (message: string) => {
+          logger.debug(`[voice] ${message}`, { guildId: this.guildId, scope: 'voice-debug', requestId: ctx?.requestId });
+        });
+        newConnection.on('stateChange', (oldState, newState) => {
+          logger.debug(`Voice state: ${oldState.status} -> ${newState.status}`, { guildId: this.guildId, scope: 'voice-debug', requestId: ctx?.requestId });
+        });
+      }
 
       this.bindConnectionListener(newConnection, VoiceConnectionStatus.Destroyed, () => {
         logger.warn('Connection destroyed', { guildId: this.guildId, scope: 'join', requestId: ctx?.requestId, event: 'destroyed' });

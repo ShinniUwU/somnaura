@@ -13,7 +13,7 @@ jobs:
 
       - uses: oven-sh/setup-bun@v1
         with:
-          bun-version: 1.1.32
+          bun-version: 1.4.2
 
       # 🧠 Cache Bun dependencies for fast builds
       - name: Setup cache
@@ -23,6 +23,10 @@ jobs:
           key: bun-${{ runner.os }}-${{ hashFiles('bun.lockb') }}
           restore-keys: |
             bun-${{ runner.os }}-
+
+      # 🎵 FFmpeg for the audio pipeline test
+      - name: Install FFmpeg
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
 
       # 🔥 Install without --frozen-lockfile so Bun can update lockfile version
       - name: Install dependencies
